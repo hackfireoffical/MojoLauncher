@@ -70,6 +70,7 @@
     <string name="mcl_setting_renderer_freedreno_kgsl">Freedreno (KGSL) - all versions, fast</string>
     <string name="mcl_setting_renderer_mesa_desktop">Mesa (DRM) - all versions, fast</string>
     <string name="mcl_setting_renderer_mesa_desktop_ext">Mesa (DRM, external) - all versions, fast</string>
+    <string name="mcl_setting_renderer_mobileglues">MobileGlues (OpenGL ES 3) - Minecraft 1.17+, shaders/mods</string>
     <string name="mcl_setting_veroption_release">Release</string>
     <string name="mcl_setting_veroption_snapshot">Snapshot</string>
     <string name="mcl_setting_veroption_oldalpha">Old-alpha</string>
