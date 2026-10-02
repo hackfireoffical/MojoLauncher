@@ -233,7 +233,6 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
                     getString(R.string.search_mod_source_modrinth),
                     getString(R.string.search_mod_source_curseforge)
             };
-            String[] sourceValues = {"all", "modrinth", "curseforge"};
             String[] sortLabels = {
                     getString(R.string.search_mod_sort_relevance),
                     getString(R.string.search_mod_sort_downloads),
