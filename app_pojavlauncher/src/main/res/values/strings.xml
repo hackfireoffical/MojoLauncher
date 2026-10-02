@@ -521,4 +521,15 @@
     <string name="preference_button_transparency">Buttons transparency</string>
     <string name="preference_button_transparency_summary">Changes on-screen buttons transparency</string>
     <string name="main_please_restart">Please restart the game from the launcher homescreen</string>
+    <string name="search_mod_source">Source</string>
+    <string name="search_mod_source_all">All sources</string>
+    <string name="search_mod_source_modrinth">Modrinth</string>
+    <string name="search_mod_source_curseforge">CurseForge</string>
+    <string name="search_mod_sort">Sort by</string>
+    <string name="search_mod_sort_relevance">Relevance</string>
+    <string name="search_mod_sort_downloads">Downloads</string>
+    <string name="search_mod_sort_updated">Recently updated</string>
+    <string name="search_mod_sort_newest">Newest</string>
+    <string name="search_mod_sort_name">Name</string>
+    <string name="search_mod_sort_rating">Rating</string>
 </resources>
