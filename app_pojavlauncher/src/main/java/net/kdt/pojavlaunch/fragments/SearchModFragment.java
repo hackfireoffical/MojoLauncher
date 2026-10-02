@@ -13,6 +13,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -35,6 +37,7 @@ import net.kdt.pojavlaunch.modloaders.modpacks.ModItemAdapter;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.CommonApi;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.ModpackApi;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchFilters;
+import net.kdt.pojavlaunch.modloaders.modpacks.models.Constants;
 import net.kdt.pojavlaunch.profiles.VersionSelectorDialog;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.progresskeeper.TaskCountListener;
@@ -215,11 +218,55 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
         dialog.setOnShowListener(dialogInterface -> {
             TextView mSelectedVersion = dialog.findViewById(R.id.search_mod_selected_mc_version_textview);
             Button mSelectVersionButton = dialog.findViewById(R.id.search_mod_mc_version_button);
+            Spinner mSourceSpinner = dialog.findViewById(R.id.search_mod_source_spinner);
+            Spinner mSortSpinner = dialog.findViewById(R.id.search_mod_sort_spinner);
             Button mApplyButton = dialog.findViewById(R.id.search_mod_apply_filters);
 
             assert mSelectVersionButton != null;
             assert mSelectedVersion != null;
+            assert mSourceSpinner != null;
+            assert mSortSpinner != null;
             assert mApplyButton != null;
+
+            String[] sourceLabels = {
+                    getString(R.string.search_mod_source_all),
+                    getString(R.string.search_mod_source_modrinth),
+                    getString(R.string.search_mod_source_curseforge)
+            };
+            String[] sourceValues = {"all", "modrinth", "curseforge"};
+            String[] sortLabels = {
+                    getString(R.string.search_mod_sort_relevance),
+                    getString(R.string.search_mod_sort_downloads),
+                    getString(R.string.search_mod_sort_updated),
+                    getString(R.string.search_mod_sort_newest),
+                    getString(R.string.search_mod_sort_name),
+                    getString(R.string.search_mod_sort_rating)
+            };
+            String[] sortValues = {"relevance", "downloads", "updated", "newest", "name", "rating"};
+
+            ArrayAdapter<String> sourceAdapter = new ArrayAdapter<>(
+                    requireContext(), android.R.layout.simple_spinner_item, sourceLabels);
+            sourceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            mSourceSpinner.setAdapter(sourceAdapter);
+
+            ArrayAdapter<String> sortAdapter = new ArrayAdapter<>(
+                    requireContext(), android.R.layout.simple_spinner_item, sortLabels);
+            sortAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            mSortSpinner.setAdapter(sortAdapter);
+
+            int sourceSelection = 0;
+            if (mSearchFilters.source == Constants.SOURCE_MODRINTH) sourceSelection = 1;
+            else if (mSearchFilters.source == Constants.SOURCE_CURSEFORGE) sourceSelection = 2;
+            mSourceSpinner.setSelection(sourceSelection);
+
+            int sortSelection = 0;
+            for (int i = 0; i < sortValues.length; i++) {
+                if (sortValues[i].equals(mSearchFilters.sort)) {
+                    sortSelection = i;
+                    break;
+                }
+            }
+            mSortSpinner.setSelection(sortSelection);
 
             // Setup the expendable list behavior
             mSelectVersionButton.setOnClickListener(v -> VersionSelectorDialog.open(v.getContext(), true, (id, snapshot)-> mSelectedVersion.setText(id)));
@@ -230,6 +277,18 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
             // Apply the new settings
             mApplyButton.setOnClickListener(v -> {
                 mSearchFilters.mcVersion = mSelectedVersion.getText().toString();
+                switch (mSourceSpinner.getSelectedItemPosition()) {
+                    case 1:
+                        mSearchFilters.source = Constants.SOURCE_MODRINTH;
+                        break;
+                    case 2:
+                        mSearchFilters.source = Constants.SOURCE_CURSEFORGE;
+                        break;
+                    default:
+                        mSearchFilters.source = Constants.SOURCE_ALL;
+                        break;
+                }
+                mSearchFilters.sort = sortValues[mSortSpinner.getSelectedItemPosition()];
                 searchMods(mSearchEditText.getText().toString());
                 dialogInterface.dismiss();
             });
