@@ -13,7 +13,6 @@ import net.kdt.pojavlaunch.multirt.Runtime;
 import net.kdt.pojavlaunch.plugins.LibraryPlugin;
 import net.kdt.pojavlaunch.prefs.*;
 import net.kdt.pojavlaunch.game.renderer.GameRenderer;
-import static net.kdt.pojavlaunch.prefs.LauncherPreferences.PREF_ZINK_PREFER_SYSTEM_DRIVER;
 
 public class JREUtils {
     public static void redirectAndPrintJRELog() {
@@ -91,7 +90,6 @@ public class JREUtils {
         setupFfmpegEnv(context, envMap);
 
         if(LauncherPreferences.PREF_BIG_CORE_AFFINITY) envMap.put("POJAV_BIG_CORE_AFFINITY", "1");
-        if(PREF_ZINK_PREFER_SYSTEM_DRIVER) envMap.put("POJAV_ZINK_PREFER_SYSTEM_DRIVER", "1");
         if(LauncherPreferences.PREF_ALSOFT_FORCE_OPENSL) envMap.put("ALSOFT_DRIVERS", "opensl");
 
         overrideEnvVars(envMap);
