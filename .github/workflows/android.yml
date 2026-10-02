@@ -19,6 +19,14 @@ jobs:
         with:
           submodules: true
 
+      - name: Get MobileGlues
+        run: |
+          git init MobileGlues
+          git -C MobileGlues remote add origin https://github.com/MobileGL-Dev/MobileGlues.git
+          git -C MobileGlues fetch --depth 1 origin 97558a69157b033b890958b1e49258c5b51a80c6
+          git -C MobileGlues checkout FETCH_HEAD
+          git -C MobileGlues submodule update --init --recursive
+
       - name: Get LTW
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
