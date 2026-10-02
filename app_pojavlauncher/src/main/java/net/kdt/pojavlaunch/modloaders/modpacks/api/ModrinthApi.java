@@ -64,7 +64,7 @@ public class ModrinthApi implements ModpackApi{
         params.put("facets", facetString.toString());
         params.put("query", searchFilters.name);
         params.put("limit", 50);
-        params.put("index", "relevance");
+        params.put("index", searchFilters.sort == null ? "relevance" : searchFilters.sort);
         if(modrinthSearchResult != null)
             params.put("offset", modrinthSearchResult.previousOffset);
 
