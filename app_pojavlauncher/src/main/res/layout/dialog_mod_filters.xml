@@ -55,7 +55,7 @@
         android:layout_marginTop="@dimen/padding_large"
         android:text="@string/search_mod_source"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/search_mod_sort_spinner" />
+        app:layout_constraintTop_toBottomOf="@id/search_mod_selected_mc_version_textview" />
 
     <Spinner
         android:id="@+id/search_mod_source_spinner"
@@ -87,7 +87,7 @@
         android:text="@string/generic_apply"
         android:layout_marginVertical="@dimen/padding_large"
 
-        app:layout_constraintTop_toBottomOf="@id/search_mod_selected_mc_version_textview"
+        app:layout_constraintTop_toBottomOf="@id/search_mod_sort_spinner"
         />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
