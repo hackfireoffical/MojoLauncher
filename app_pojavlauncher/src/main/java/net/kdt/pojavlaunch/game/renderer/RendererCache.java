@@ -6,6 +6,7 @@ import static net.kdt.pojavlaunch.game.renderer.def.Renderers.LEGACYZINK_RENDERE
 import static net.kdt.pojavlaunch.game.renderer.def.Renderers.LTW_RENDERER;
 import static net.kdt.pojavlaunch.game.renderer.def.Renderers.MESA_RENDERER;
 import static net.kdt.pojavlaunch.game.renderer.def.Renderers.MESA_RENDERER_EXT;
+import static net.kdt.pojavlaunch.game.renderer.def.Renderers.MOBILEGLUES_RENDERER;
 import static net.kdt.pojavlaunch.game.renderer.def.Renderers.ZINK_RENDERER;
 
 import android.content.Context;
