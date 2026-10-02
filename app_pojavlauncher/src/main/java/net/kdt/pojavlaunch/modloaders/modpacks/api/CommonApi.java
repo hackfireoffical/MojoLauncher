@@ -58,6 +58,10 @@ public class CommonApi implements ModpackApi {
         for(int i = 0; i < mModpackApis.length; i++) {
             // If there is an array and its length is zero, this means that we've exhausted the results for this
             // search query and we don't need to actually do the search
+            if (!isSourceEnabled(searchFilters, i)) {
+                if (results[i] == null) results[i] = emptyResult();
+                continue;
+            }
             if(results[i] != null && results[i].results.length == 0) continue;
             // If the previous page result is not null (aka the arrays aren't fresh)
             // and the previous result is null, it means that na error has occured on the previous
@@ -201,6 +205,19 @@ public class CommonApi implements ModpackApi {
         }
 
         return fusedItems;
+    }
+
+    private boolean isSourceEnabled(SearchFilters filters, int index) {
+        if (filters.source == Constants.SOURCE_ALL) return true;
+        return (filters.source == Constants.SOURCE_MODRINTH && index == 0)
+                || (filters.source == Constants.SOURCE_CURSEFORGE && index == 1);
+    }
+
+    private SearchResult emptyResult() {
+        SearchResult result = new SearchResult();
+        result.results = new ModItem[0];
+        result.totalResultCount = 0;
+        return result;
     }
 
     private void cancelAllFutures(Future<?>[] futures) {
