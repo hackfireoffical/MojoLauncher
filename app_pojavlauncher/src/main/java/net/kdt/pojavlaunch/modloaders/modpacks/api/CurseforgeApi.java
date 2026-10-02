@@ -48,6 +48,12 @@ public class CurseforgeApi implements ModpackApi{
     // https://api.curseforge.com/v1/categories?gameId=432 and search for "Mods" (case-sensitive)
     private static final int CURSEFORGE_MOD_CLASS_ID = 6;
     private static final int CURSEFORGE_SORT_RELEVANCY = 1;
+    private static final int CURSEFORGE_SORT_POPULARITY = 2;
+    private static final int CURSEFORGE_SORT_LAST_UPDATED = 3;
+    private static final int CURSEFORGE_SORT_NAME = 4;
+    private static final int CURSEFORGE_SORT_DOWNLOADS = 6;
+    private static final int CURSEFORGE_SORT_RELEASED_DATE = 11;
+    private static final int CURSEFORGE_SORT_RATING = 12;
     private static final int CURSEFORGE_PAGINATION_SIZE = 50;
     private static final int CURSEFORGE_PAGINATION_END_REACHED = -1;
     private static final int CURSEFORGE_PAGINATION_ERROR = -2;
@@ -65,7 +71,7 @@ public class CurseforgeApi implements ModpackApi{
         params.put("gameId", CURSEFORGE_MC_GAME_ID);
         params.put("classId", searchFilters.isModpack ? CURSEFORGE_MODPACK_CLASS_ID : CURSEFORGE_MOD_CLASS_ID);
         params.put("searchFilter", searchFilters.name);
-        params.put("sortField", CURSEFORGE_SORT_RELEVANCY);
+        params.put("sortField", getSortField(searchFilters.sort));
         params.put("sortOrder", "desc");
         if(searchFilters.mcVersion != null && !searchFilters.mcVersion.isEmpty())
             params.put("gameVersion", searchFilters.mcVersion);
@@ -147,6 +153,16 @@ public class CurseforgeApi implements ModpackApi{
 
     public LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException {
         return ModpackInstaller.installModpack(modpackName, modpackName, modpackFile, icon, this::installCurseforgeZip);
+    }
+
+    private int getSortField(String sort) {
+        if ("downloads".equals(sort)) return CURSEFORGE_SORT_DOWNLOADS;
+        if ("updated".equals(sort)) return CURSEFORGE_SORT_LAST_UPDATED;
+        if ("newest".equals(sort)) return CURSEFORGE_SORT_RELEASED_DATE;
+        if ("name".equals(sort)) return CURSEFORGE_SORT_NAME;
+        if ("rating".equals(sort)) return CURSEFORGE_SORT_RATING;
+        if ("popularity".equals(sort)) return CURSEFORGE_SORT_POPULARITY;
+        return CURSEFORGE_SORT_RELEVANCY;
     }
 
     private int getPaginatedDetails(ArrayList<JsonObject> objectList, int index, String modId) {
