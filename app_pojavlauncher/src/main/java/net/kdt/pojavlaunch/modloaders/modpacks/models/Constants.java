@@ -7,6 +7,7 @@ public class Constants {
     public static final int SOURCE_MODRINTH = 0x0;
     public static final int SOURCE_CURSEFORGE = 0x1;
     public static final int SOURCE_TECHNIC = 0x2;
+    public static final int SOURCE_ALL = -1;
 
     /** Modrinth api, file environments */
     public static final String MODRINTH_FILE_ENV_REQUIRED = "required";
