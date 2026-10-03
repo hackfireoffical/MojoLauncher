@@ -540,4 +540,6 @@
     <string name="search_mod_sort_newest">Newest</string>
     <string name="search_mod_sort_name">Name</string>
     <string name="search_mod_sort_rating">Rating</string>
+    <string name="custom_keycode_close">Close</string>
+    <string name="custom_keycode_confirm">Confirm</string>
 </resources>
