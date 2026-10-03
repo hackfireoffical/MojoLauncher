@@ -128,6 +128,7 @@ public class CurseforgeApi implements ModpackApi{
         String[] versionUrls = new String[length];
         String[] hashes = new String[length];
         String[] loaders = new String[length];
+        long[] sizes = new long[length];
         for(int i = 0; i < allModDetails.size(); i++) {
             JsonObject modDetail = allModDetails.get(i);
             versionNames[i] = modDetail.get("displayName").getAsString();
@@ -147,8 +148,10 @@ public class CurseforgeApi implements ModpackApi{
 
             hashes[i] = getSha1FromModData(modDetail);
             loaders[i] = getCurseforgeLoaderName(modDetail);
+            JsonElement fileLength = modDetail.get("fileLength");
+            sizes[i] = fileLength != null && !fileLength.isJsonNull() ? fileLength.getAsLong() : -1;
         }
-        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders);
+        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes);
     }
 
     @Override
@@ -164,7 +167,7 @@ public class CurseforgeApi implements ModpackApi{
         downloads.add(new TaskMetadata(
                 new File(contentDirectory, fileName),
                 new URL(urlString),
-                -1,
+                modDetail.versionSizes[selectedVersion],
                 modDetail.versionHashes[selectedVersion],
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
         try {
