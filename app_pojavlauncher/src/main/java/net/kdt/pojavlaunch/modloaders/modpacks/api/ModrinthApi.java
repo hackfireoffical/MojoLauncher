@@ -28,6 +28,9 @@ import net.kdt.pojavlaunch.utils.ZipUtils;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -123,6 +126,31 @@ public class ModrinthApi implements ModpackApi{
     }
 
     @Override
+    public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
+        String urlString = modDetail.versionUrls[selectedVersion];
+        String fileName = getJarFileName(urlString, modDetail.title);
+        File modsDirectory = new File(instanceDirectory, "mods");
+        FileUtils.ensureDirectory(modsDirectory);
+        ArrayList<TaskMetadata> downloads = new ArrayList<>(1);
+        downloads.add(new TaskMetadata(
+                new File(modsDirectory, fileName),
+                new URL(urlString),
+                0,
+                modDetail.versionHashes[selectedVersion],
+                DownloadMirror.DOWNLOAD_CLASS_NONE));
+        new SingleModDownloader().start(downloads);
+    }
+
+    private String getJarFileName(String urlString, String title) {
+        try {
+            String path = new URL(urlString).getPath();
+            String name = new File(URLDecoder.decode(path, StandardCharsets.UTF_8.name())).getName();
+            if (name != null && name.toLowerCase().endsWith(".jar")) return name;
+        } catch (Exception ignored) {}
+        return title.replaceAll("[^A-Za-z0-9._-]", "_") + ".jar";
+    }
+
+    @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException{
         //TODO considering only modpacks for now
         return ModpackInstaller.downloadModpack(modDetail, selectedVersion, this::installMrpack);
@@ -175,6 +203,13 @@ public class ModrinthApi implements ModpackApi{
 
     class ModrinthSearchResult extends SearchResult {
         int previousOffset;
+    }
+
+    static class SingleModDownloader extends Downloader {
+        SingleModDownloader() { super(ProgressLayout.INSTALL_MODPACK); }
+        void start(ArrayList<TaskMetadata> tasks) throws IOException, InterruptedException {
+            runDownloads(tasks);
+        }
     }
 
     static class ModrinthDownloader extends Downloader {
