@@ -20,6 +20,18 @@
     <!-- Ignore because it's  done to fit the ImageButton within spinner background -->
 
     <ImageButton
+        android:id="@+id/content_downloader_button"
+        android:layout_width="@dimen/_52sdp"
+        android:layout_height="@dimen/_52sdp"
+        android:background="?attr/selectableItemBackground"
+        android:src="@drawable/ic_px_file_dl"
+        android:scaleType="fitCenter"
+        android:paddingVertical="@dimen/_8sdp"
+        android:contentDescription="@string/preference_content_downloader_title"
+        app:layout_constraintEnd_toStartOf="@id/setting_button"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
         android:id="@+id/setting_button"
         android:layout_width="@dimen/_52sdp"
         android:layout_height="@dimen/_52sdp"
