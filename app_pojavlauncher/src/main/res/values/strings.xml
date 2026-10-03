@@ -523,6 +523,11 @@
     <string name="main_please_restart">Please restart the game from the launcher homescreen</string>
     <string name="search_mod_content_type">Content type</string>
     <string name="search_mod_content_mods">Mods</string>
+    <string name="preference_content_downloader_title">Content Downloader</string>
+    <string name="preference_content_downloader_description">Download mods, shader packs, and texture packs for the selected instance.</string>
+    <string name="search_mod_content_shaders">Shader Packs</string>
+    <string name="search_mod_content_resourcepacks">Texture Packs</string>
+
     <string name="search_mod_content_modpacks">Modpacks</string>
     <string name="search_mod_source">Source</string>
     <string name="search_mod_source_all">All sources</string>
