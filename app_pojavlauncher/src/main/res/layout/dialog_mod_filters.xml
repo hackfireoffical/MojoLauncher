@@ -69,7 +69,7 @@
         android:layout_marginTop="@dimen/padding_large"
         android:text="@string/search_mod_source"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/search_mod_selected_mc_version_textview" />
+        app:layout_constraintTop_toBottomOf="@id/search_mod_content_type_spinner" />
 
     <Spinner
         android:id="@+id/search_mod_source_spinner"
