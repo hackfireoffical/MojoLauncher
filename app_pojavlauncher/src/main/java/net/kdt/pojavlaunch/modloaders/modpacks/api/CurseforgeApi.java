@@ -129,6 +129,7 @@ public class CurseforgeApi implements ModpackApi{
         String[] hashes = new String[length];
         String[] loaders = new String[length];
         long[] sizes = new long[length];
+        String[][] dependencies = new String[length][];
         for(int i = 0; i < allModDetails.size(); i++) {
             JsonObject modDetail = allModDetails.get(i);
             versionNames[i] = modDetail.get("displayName").getAsString();
@@ -149,10 +150,31 @@ public class CurseforgeApi implements ModpackApi{
             hashes[i] = getSha1FromModData(modDetail);
             loaders[i] = getCurseforgeLoaderName(modDetail);
             if ("Unknown".equals(loaders[i]) && (Constants.CONTENT_SHADER.equals(item.contentType) || Constants.CONTENT_RESOURCEPACK.equals(item.contentType))) loaders[i] = "Minecraft";
+            JsonArray dependencyArray = modDetail.getAsJsonArray("dependencies");
+            ArrayList<String> requiredDependencies = new ArrayList<>();
+            if (dependencyArray != null) {
+                for (JsonElement dependencyElement : dependencyArray) {
+                    JsonObject dependency = dependencyElement.getAsJsonObject();
+                    JsonElement relationType = dependency.get("relationType");
+                    if (relationType == null || relationType.isJsonNull() || relationType.getAsInt() != 4) continue;
+                    JsonElement dependencyId = dependency.get("modId");
+                    if (dependencyId == null || dependencyId.isJsonNull()) continue;
+                    String dependencyName = dependencyId.getAsString();
+                    try {
+                        JsonObject dependencyMod = mApiHandler.get("mods/" + dependencyId.getAsString(), null, JsonObject.class);
+                        if (dependencyMod != null && dependencyMod.has("data")) {
+                            JsonObject data = dependencyMod.getAsJsonObject("data");
+                            if (data.has("name")) dependencyName = data.get("name").getAsString();
+                        }
+                    } catch (Exception ignored) {}
+                    requiredDependencies.add(dependencyName);
+                }
+            }
+            dependencies[i] = requiredDependencies.toArray(new String[0]);
             JsonElement fileLength = modDetail.get("fileLength");
             sizes[i] = fileLength != null && !fileLength.isJsonNull() ? fileLength.getAsLong() : -1;
         }
-        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes);
+        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes, dependencies);
     }
 
     @Override
