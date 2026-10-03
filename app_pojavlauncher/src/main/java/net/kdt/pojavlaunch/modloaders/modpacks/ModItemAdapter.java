@@ -1,8 +1,10 @@
 package net.kdt.pojavlaunch.modloaders.modpacks;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +15,7 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
@@ -24,8 +27,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.kdt.SimpleArrayAdapter;
 
 import net.kdt.pojavlaunch.PojavApplication;
-import net.kdt.pojavlaunch.instances.Instance;
-import net.kdt.pojavlaunch.instances.Instances;
+import net.kdt.pojavlaunch.content.ContentManager;
+import net.kdt.pojavlaunch.content.ContentVersion;
+import net.kdt.pojavlaunch.content.InstallPlan;
+import net.kdt.pojavlaunch.content.Loaders;
 import git.artdeell.mojo.R;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.ModpackApi;
@@ -38,10 +43,11 @@ import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchFilters;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchResult;
 import net.kdt.pojavlaunch.progresskeeper.TaskCountListener;
 
-import java.util.Arrays;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.Future;
@@ -150,6 +156,42 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         return false;
     }
 
+    private static String formatSize(long bytes) {
+        if (bytes <= 0) return "";
+        if (bytes < 1024L * 1024L) return String.format(Locale.ROOT, "%d KB", Math.max(1, bytes / 1024));
+        return String.format(Locale.ROOT, "%.1f MB", bytes / 1048576.0);
+    }
+
+    private static String stabilityLabel(int stability) {
+        if (stability == ContentVersion.STABILITY_ALPHA) return "alpha";
+        if (stability == ContentVersion.STABILITY_BETA) return "beta";
+        return "";
+    }
+
+    private static boolean listContainsVersion(String supportedVersions, String requestedVersion) {
+        if (supportedVersions == null || requestedVersion == null) return false;
+        for (String version : supportedVersions.split(",")) {
+            if (requestedVersion.equals(version.trim())) return true;
+        }
+        return false;
+    }
+
+    private static boolean loaderListMatches(String preferredLoader, String loaderLabel) {
+        if (preferredLoader == null || loaderLabel == null) return false;
+        for (String loader : loaderLabel.split(",")) {
+            String trimmed = loader.trim();
+            if (trimmed.equalsIgnoreCase(preferredLoader)) return true;
+            if ("quilt".equalsIgnoreCase(preferredLoader) && "fabric".equalsIgnoreCase(trimmed)) return true;
+        }
+        return false;
+    }
+
+    private static String firstLoader(String loaderLabel) {
+        if (loaderLabel == null) return null;
+        int comma = loaderLabel.indexOf(',');
+        return (comma >= 0 ? loaderLabel.substring(0, comma) : loaderLabel).trim();
+    }
+
 
     /**
      * Basic viewholder with expension capabilities
@@ -170,6 +212,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private Bitmap mThumbnailBitmap;
         private ImageReceiver mImageReceiver;
         private boolean mInstallEnabled;
+        private boolean mPreparing;
 
         public ViewHolder(View view) {
             super(view);
@@ -183,7 +226,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     mMinecraftSpinner = mExtendedLayout.findViewById(R.id.mod_extended_minecraft_spinner);
                     mExtendedErrorTextView = mExtendedLayout.findViewById(R.id.mod_extended_error_textview);
 
-                    mExtendedButton.setOnClickListener(v1 -> installSelectedVersion());
+                    mExtendedButton.setOnClickListener(v1 -> startInstall());
                     mVersionList.removeAllViews();
                 } else {
                     if(isExtended()) closeDetailedView();
@@ -203,8 +246,13 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                          * If we didn't use a Future, we would have extended a ViewHolder with completely unrelated content
                          * or with an error that has never actually happened
                          */
-                        mModDetail = mModpackApi.getModDetails(mModItem);
-                        System.out.println(mModDetail);
+                        ModDetail fetchedDetail = null;
+                        try {
+                            fetchedDetail = mModpackApi.getModDetails(mModItem);
+                        } catch (Exception e) {
+                            Log.e("ModItemAdapter", "Failed to load details", e);
+                        }
+                        final ModDetail finalDetail = fetchedDetail;
                         Tools.runOnUiThread(() -> {
                             /*
                              * Once we enter here, the state we're in is already defined - no view shuffling can happen on the UI
@@ -220,7 +268,8 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                              * let's help GC clean it up once we exit!
                              */
                             mExtensionFuture = null;
-                            setStateDetailed(mModDetail);
+                            mModDetail = finalDetail;
+                            setStateDetailed(finalDetail);
                         });
                     }).startOnExecutor(PojavApplication.sExecutorService);
                 }
@@ -236,6 +285,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         /** Display basic info about the moditem */
         public void setStateLimited(ModItem item) {
             mModDetail = null;
+            mPreparing = false;
             if(mThumbnailBitmap != null) {
                 mIconView.setImageBitmap(null);
                 mThumbnailBitmap.recycle();
@@ -271,17 +321,28 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
 
-        /** Display extended info/interaction about a modpack */
+        /** Display extended info/interaction about a mod, shader, resource pack or modpack */
         private void setStateDetailed(ModDetail detailedItem) {
             if(detailedItem != null) {
                 mExtendedErrorTextView.setVisibility(View.GONE);
                 mVersionList.removeAllViews();
 
+                // Each entry in mcVersionNames is a comma-joined list (e.g. "1.21, 1.21.1"); offer single versions
                 LinkedHashSet<String> versionSet = new LinkedHashSet<>();
-                for (String version : detailedItem.mcVersionNames) {
-                    if (version != null && !version.isEmpty()) versionSet.add(version);
+                for (String joined : detailedItem.mcVersionNames) {
+                    if (joined == null) continue;
+                    for (String version : joined.split(",")) {
+                        String trimmed = version.trim();
+                        if (!trimmed.isEmpty()) versionSet.add(trimmed);
+                    }
                 }
-                ArrayList<String> minecraftVersions = new ArrayList<>(versionSet);
+                // Show release versions only, unless that would leave nothing to choose from
+                ArrayList<String> minecraftVersions = new ArrayList<>();
+                for (String version : versionSet) {
+                    if (Loaders.isMinecraftRelease(version)) minecraftVersions.add(version);
+                }
+                if (minecraftVersions.isEmpty()) minecraftVersions.addAll(versionSet);
+                Collections.sort(minecraftVersions, Loaders::compareMinecraftDesc);
 
                 ArrayAdapter<String> minecraftAdapter = new ArrayAdapter<>(
                         mMinecraftSpinner.getContext(),
@@ -290,62 +351,44 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 minecraftAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 mMinecraftSpinner.setAdapter(minecraftAdapter);
 
-                int initialMinecraft = 0;
-                String selectedMinecraftVersion = null;
-                String selectedLoader = null;
+                String instanceMinecraft = null;
+                String instanceLoader = null;
                 try {
-                    Instance selectedInstance = Instances.loadSelectedInstance();
-                    if (selectedInstance != null && selectedInstance.versionId != null) {
-                        String instanceVersionId = selectedInstance.versionId;
-                        for (String version : minecraftVersions) {
-                            if (instanceVersionId.equals(version) || instanceVersionId.contains(version)) {
-                                selectedMinecraftVersion = version;
-                                break;
-                            }
-                        }
-                        selectedLoader = getLoaderFromInstanceVersion(instanceVersionId);
-                    }
+                    ContentManager.Target target = ContentManager.currentTarget();
+                    instanceMinecraft = target.minecraftVersion;
+                    instanceLoader = target.loader;
                 } catch (Exception ignored) {
                 }
 
-                if (selectedMinecraftVersion == null && mSearchFilters != null && mSearchFilters.mcVersion != null) {
-                    selectedMinecraftVersion = mSearchFilters.mcVersion;
+                int initialMinecraft = 0;
+                if (instanceMinecraft != null && minecraftVersions.contains(instanceMinecraft)) {
+                    initialMinecraft = minecraftVersions.indexOf(instanceMinecraft);
+                } else if (mSearchFilters != null && mSearchFilters.mcVersion != null
+                        && minecraftVersions.contains(mSearchFilters.mcVersion)) {
+                    initialMinecraft = minecraftVersions.indexOf(mSearchFilters.mcVersion);
                 }
 
-                if (selectedMinecraftVersion != null) {
-                    int requested = minecraftVersions.indexOf(selectedMinecraftVersion);
-                    if (requested >= 0) initialMinecraft = requested;
-                }
-
-                final int finalInitialMinecraft = initialMinecraft;
-                final String finalSelectedLoader = selectedLoader;
-
+                final String finalInstanceLoader = instanceLoader;
                 mMinecraftSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                     @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                        populateModVersions(detailedItem, minecraftVersions.get(position), position == finalInitialMinecraft ? finalSelectedLoader : null);
+                        populateModVersions(detailedItem, minecraftVersions.get(position), finalInstanceLoader);
                     }
                     @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
                 });
                 if (!minecraftVersions.isEmpty()) {
                     mMinecraftSpinner.setSelection(initialMinecraft);
-                    populateModVersions(detailedItem, minecraftVersions.get(initialMinecraft), selectedLoader);
+                    populateModVersions(detailedItem, minecraftVersions.get(initialMinecraft), finalInstanceLoader);
                 } else {
                     mSelectedVersion = -1;
                     setInstallEnabled(false);
                 }
             } else {
-                closeDetailedView();
+                // Keep the panel open so the error is actually visible
                 setInstallEnabled(false);
                 mSelectedVersion = -1;
                 mVersionList.removeAllViews();
                 mExtendedErrorTextView.setVisibility(View.VISIBLE);
             }
-        }
-
-        private boolean containsMinecraftVersion(String supportedVersions, String requestedVersion) {
-            if (supportedVersions == null || requestedVersion == null) return false;
-            for (String version : supportedVersions.split(",\\s*")) if (requestedVersion.equals(version.trim())) return true;
-            return false;
         }
 
         private void populateModVersions(ModDetail detailedItem, String minecraftVersion, String preferredLoader) {
@@ -354,7 +397,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             boolean preferredLoaderFound = false;
 
             for (int i = 0; i < detailedItem.versionNames.length; i++) {
-                if (!containsMinecraftVersion(detailedItem.mcVersionNames[i], minecraftVersion)) continue;
+                if (!listContainsVersion(detailedItem.mcVersionNames[i], minecraftVersion)) continue;
 
                 final int versionIndex = i;
                 LinearLayout row = new LinearLayout(mVersionList.getContext());
@@ -362,11 +405,11 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 row.setGravity(android.view.Gravity.CENTER_VERTICAL);
                 row.setPadding(12, 10, 12, 10);
 
-                ImageView loaderIcon = new ImageView(mVersionList.getContext());
                 String loader = detailedItem.loaderNames != null && i < detailedItem.loaderNames.length
                         ? detailedItem.loaderNames[i] : "Unknown";
-                int loaderDrawable = getLoaderDrawable(loader);
+                int loaderDrawable = getLoaderDrawable(firstLoader(loader));
                 if (loaderDrawable != 0) {
+                    ImageView loaderIcon = new ImageView(mVersionList.getContext());
                     loaderIcon.setImageResource(loaderDrawable);
                     int size = (int) (32 * mVersionList.getResources().getDisplayMetrics().density);
                     LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size, size);
@@ -374,8 +417,19 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     row.addView(loaderIcon, iconParams);
                 }
 
+                StringBuilder label = new StringBuilder(detailedItem.versionNames[i]);
+                label.append("  \u2022  ").append(loader);
+                if (detailedItem.versionSizes != null && i < detailedItem.versionSizes.length) {
+                    String size = formatSize(detailedItem.versionSizes[i]);
+                    if (!size.isEmpty()) label.append("  \u2022  ").append(size);
+                }
+                if (detailedItem.contentVersions != null && i < detailedItem.contentVersions.length) {
+                    String stability = stabilityLabel(detailedItem.contentVersions[i].stability);
+                    if (!stability.isEmpty()) label.append("  \u2022  ").append(stability);
+                }
+
                 TextView versionText = new TextView(mVersionList.getContext());
-                versionText.setText(detailedItem.versionNames[i] + "  •  " + loader);
+                versionText.setText(label.toString());
                 versionText.setTextSize(15);
                 versionText.setTextColor(mVersionList.getResources().getColor(R.color.primary_text));
                 row.addView(versionText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
@@ -391,9 +445,9 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT));
 
-                // APIs normally return newest versions first, so the first compatible
-                // version becomes the automatic selection.
-                if (preferredLoader != null && preferredLoader.equalsIgnoreCase(loader) && !preferredLoaderFound) {
+                // APIs return newest versions first, so the first compatible version is selected automatically,
+                // preferring one that matches the selected instance's loader
+                if (loaderListMatches(preferredLoader, loader) && !preferredLoaderFound) {
                     mSelectedVersion = versionIndex;
                     preferredLoaderFound = true;
                 } else if (mSelectedVersion == -1) {
@@ -405,41 +459,77 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             setInstallEnabled(mSelectedVersion >= 0);
         }
 
+        /** Download button: modpacks go to the modpack installer, everything else through the content system. */
+        private void startInstall() {
+            if (mSelectedVersion < 0 || mModDetail == null || mPreparing) return;
+            final ModDetail detail = mModDetail;
+            final int index = mSelectedVersion;
+            final Context context = mExtendedButton.getContext();
 
-        private void installSelectedVersion() {
-            if (mSelectedVersion < 0 || mModDetail == null) return;
-            if (mModDetail.isModpack || mModDetail.versionDependencies == null
-                    || mSelectedVersion >= mModDetail.versionDependencies.length
-                    || mModDetail.versionDependencies[mSelectedVersion] == null
-                    || mModDetail.versionDependencies[mSelectedVersion].length == 0) {
-                mModpackApi.handleModInstallation(
-                        mExtendedButton.getContext().getApplicationContext(),
-                        mModDetail,
-                        mSelectedVersion);
+            if (detail.isModpack || detail.contentVersions == null || index >= detail.contentVersions.length) {
+                mModpackApi.handleModpackInstallation(context.getApplicationContext(), detail, index);
                 return;
             }
 
-            StringBuilder message = new StringBuilder("This mod requires these mods:\n\n");
-            for (String dependency : mModDetail.versionDependencies[mSelectedVersion]) {
-                message.append("• ").append(dependency).append('\n');
+            final ContentVersion version = detail.contentVersions[index];
+            final ContentManager.Target target;
+            try {
+                target = ContentManager.currentTarget();
+            } catch (IOException e) {
+                Toast.makeText(context, "Select an instance first", Toast.LENGTH_LONG).show();
+                return;
             }
-            message.append("\nThese dependencies may be required for the mod to work correctly.");
 
-            new AlertDialog.Builder(mExtendedButton.getContext())
-                    .setTitle("Required dependencies")
-                    .setMessage(message.toString())
-                    .setNegativeButton("Cancel", null)
-                    .setNeutralButton("Download mod only", (dialog, which) ->
-                            mModpackApi.handleModInstallation(
-                                    mExtendedButton.getContext().getApplicationContext(),
-                                    mModDetail,
-                                    mSelectedVersion))
-                    .setPositiveButton("Download + required", (dialog, which) ->
-                            mModpackApi.handleModInstallationWithDependencies(
-                                    mExtendedButton.getContext().getApplicationContext(),
-                                    mModDetail,
-                                    mSelectedVersion))
-                    .show();
+            mPreparing = true;
+            updateInstallButtonState();
+            ContentManager.preparePlan(version, target, (plan, error) -> {
+                mPreparing = false;
+                updateInstallButtonState();
+                if (error != null || plan == null) {
+                    String reason = error != null && error.getMessage() != null ? error.getMessage() : "unknown error";
+                    Toast.makeText(context, "Could not check dependencies: " + reason, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                confirmAndInstall(context, plan, target);
+            });
+        }
+
+        private void confirmAndInstall(Context context, InstallPlan plan, ContentManager.Target target) {
+            StringBuilder message = new StringBuilder();
+            String compatibility = plan.compatibilityWarning();
+            if (compatibility != null) message.append(compatibility).append("\n\n");
+            if (plan.hasDependencies()) {
+                message.append("This requires:\n");
+                for (InstallPlan.Item item : plan.dependencies) {
+                    message.append("\u2022 ").append(item.title).append('\n');
+                }
+            }
+            for (String warning : plan.warnings) {
+                message.append("\n\u26A0 ").append(warning);
+            }
+
+            if (message.length() == 0) {
+                startPlan(context, plan, false, target);
+                return;
+            }
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                    .setTitle(plan.hasDependencies() ? "Required dependencies" : "Check before installing")
+                    .setMessage(message.toString().trim())
+                    .setNegativeButton("Cancel", null);
+            if (plan.hasDependencies()) {
+                builder.setNeutralButton("Download only this", (dialog, which) -> startPlan(context, plan, false, target));
+                builder.setPositiveButton("Download + required", (dialog, which) -> startPlan(context, plan, true, target));
+            } else {
+                builder.setPositiveButton("Install anyway", (dialog, which) -> startPlan(context, plan, false, target));
+            }
+            builder.show();
+        }
+
+        private void startPlan(Context context, InstallPlan plan, boolean withDependencies, ContentManager.Target target) {
+            if (!ContentManager.install(context, plan, withDependencies, target, null)) {
+                Toast.makeText(context, "A download is already in progress", Toast.LENGTH_SHORT).show();
+            }
         }
 
         private void openDetailedView() {
@@ -462,7 +552,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             setInstallEnabled(false);
             mVersionList.removeAllViews();
             TextView loading = new TextView(mVersionList.getContext());
-            loading.setText("Loading versions…");
+            loading.setText("Loading versions\u2026");
             mVersionList.addView(loading);
             mExtendedErrorTextView.setVisibility(View.GONE);
             openDetailedView();
@@ -494,7 +584,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         private void updateInstallButtonState() {
             if(mExtendedButton != null)
-                mExtendedButton.setEnabled(mInstallEnabled && !mTasksRunning);
+                mExtendedButton.setEnabled(mInstallEnabled && !mTasksRunning && !mPreparing);
         }
 
         private void updateVersionSelection() {
@@ -507,19 +597,9 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
 
-        private String getLoaderFromInstanceVersion(String versionId) {
-            if (versionId == null) return null;
-            String lower = versionId.toLowerCase();
-            if (lower.contains("neoforge")) return "NeoForge";
-            if (lower.contains("fabric")) return "Fabric";
-            if (lower.contains("forge")) return "Forge";
-            if (lower.contains("quilt")) return "Quilt";
-            return null;
-        }
-
         private int getLoaderDrawable(String loader) {
             if (loader == null) return 0;
-            switch (loader.toLowerCase()) {
+            switch (loader.toLowerCase(Locale.ROOT)) {
                 case "fabric": return R.drawable.ic_fabric;
                 case "forge": return R.drawable.ic_forge;
                 case "neoforge": return R.drawable.ic_neoforge;
