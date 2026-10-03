@@ -54,6 +54,7 @@ public class Downloader {
         mThreadException.set(null);
         mDownloadedFileCounter.set(0);
         mDownloadedSizeCounter.set(0);
+        mLastProgressTimestamp.set(System.currentTimeMillis());
         mDownloadService = Executors.newFixedThreadPool(3);
         int verifyThreads = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
         mVerifyService = Executors.newFixedThreadPool(verifyThreads, r -> {
@@ -178,6 +179,7 @@ public class Downloader {
         connection.setInstanceFollowRedirects(true);
         connection.setRequestProperty("User-Agent", DownloadUtils.USER_AGENT);
         connection.setRequestProperty("Accept", "*/*");
+        connection.setRequestProperty("Accept-Encoding", "identity");
         connection.setDoInput(true);
         connection.setDoOutput(false);
         return connection;
@@ -219,7 +221,7 @@ public class Downloader {
     protected boolean tryContinueDownload(File file, long wantedLength, URL url, BytesCopiedListener listener) throws IOException {
         HttpURLConnection connection = openConnection(url);
         String range = String.format(Locale.ENGLISH,"bytes %d-%d/%d", file.length(), wantedLength-1, wantedLength);
-        connection.setRequestProperty("Content-Range", range);
+        connection.setRequestProperty("Range", "bytes=" + file.length() + "-" + (wantedLength - 1));
         try {
             connection.connect();
             int responseCode = connection.getResponseCode();
