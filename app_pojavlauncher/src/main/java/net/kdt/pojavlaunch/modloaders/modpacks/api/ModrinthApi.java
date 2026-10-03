@@ -102,42 +102,98 @@ public class ModrinthApi implements ModpackApi{
 
         JsonArray response = mApiHandler.get(String.format("project/%s/version", item.id), JsonArray.class);
         if(response == null) return null;
-        System.out.println(response);
-        String[] names = new String[response.size()];
-        String[] mcNames = new String[response.size()];
-        String[] urls = new String[response.size()];
-        String[] hashes = new String[response.size()];
-        String[] loaders = new String[response.size()];
-        long[] sizes = new long[response.size()];
+
+        // Versions without a downloadable file are skipped instead of crashing the whole list
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> mcNames = new ArrayList<>();
+        ArrayList<String> urls = new ArrayList<>();
+        ArrayList<String> hashes = new ArrayList<>();
+        ArrayList<String> loaders = new ArrayList<>();
+        ArrayList<Long> sizes = new ArrayList<>();
 
         for (int i=0; i<response.size(); ++i) {
+            if (!response.get(i).isJsonObject()) continue;
             JsonObject version = response.get(i).getAsJsonObject();
-            names[i] = version.get("name").getAsString();
-            JsonArray gameVersions = version.getAsJsonArray("game_versions");
+            JsonObject file = pickPrimaryFile(version);
+            if (file == null) continue;
+            JsonElement urlElement = file.get("url");
+            if (urlElement == null || urlElement.isJsonNull()) continue;
+
+            String name = getString(version, "name");
+            if (name == null || name.isEmpty()) name = getString(version, "version_number");
+            if (name == null || name.isEmpty()) name = "Unnamed version";
+            names.add(name);
+
             StringBuilder mcVersionBuilder = new StringBuilder();
-            for(JsonElement gameVersion : gameVersions) {
-                if(mcVersionBuilder.length() > 0) mcVersionBuilder.append(", ");
-                mcVersionBuilder.append(gameVersion.getAsString());
+            JsonArray gameVersions = version.has("game_versions") && version.get("game_versions").isJsonArray()
+                    ? version.getAsJsonArray("game_versions") : null;
+            if (gameVersions != null) {
+                for (JsonElement gameVersion : gameVersions) {
+                    if (mcVersionBuilder.length() > 0) mcVersionBuilder.append(", ");
+                    mcVersionBuilder.append(gameVersion.getAsString());
+                }
             }
-            mcNames[i] = mcVersionBuilder.toString();
-            urls[i] = version.get("files").getAsJsonArray().get(0).getAsJsonObject().get("url").getAsString();
-            JsonArray loaderArray = version.getAsJsonArray("loaders");
-            loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
-            JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
-            sizes[i] = file.has("size") ? file.get("size").getAsLong() : -1;
+            mcNames.add(mcVersionBuilder.toString());
+
+            urls.add(urlElement.getAsString());
+
+            // Keep every loader the version supports (e.g. "forge, neoforge") so that the UI can
+            // match the active instance's loader against any of them, not just the first one.
+            StringBuilder loaderBuilder = new StringBuilder();
+            JsonArray loaderArray = version.has("loaders") && version.get("loaders").isJsonArray()
+                    ? version.getAsJsonArray("loaders") : null;
+            if (loaderArray != null) {
+                for (JsonElement loader : loaderArray) {
+                    if (loaderBuilder.length() > 0) loaderBuilder.append(", ");
+                    loaderBuilder.append(loader.getAsString());
+                }
+            }
+            loaders.add(loaderBuilder.length() > 0 ? loaderBuilder.toString() : "Unknown");
+
+            JsonElement size = file.get("size");
+            sizes.add(size != null && !size.isJsonNull() ? size.getAsLong() : -1L);
 
             // Assume there may not be hashes, in case the API changes
-            JsonObject hashesMap = version.getAsJsonArray("files").get(0).getAsJsonObject()
-                    .get("hashes").getAsJsonObject();
-            if(hashesMap == null || hashesMap.get("sha1") == null){
-                hashes[i] = null;
-                continue;
+            String sha1 = null;
+            JsonElement hashesElement = file.get("hashes");
+            if (hashesElement != null && hashesElement.isJsonObject()) {
+                JsonElement sha1Element = hashesElement.getAsJsonObject().get("sha1");
+                if (sha1Element != null && !sha1Element.isJsonNull()) sha1 = sha1Element.getAsString();
             }
-
-            hashes[i] = hashesMap.get("sha1").getAsString();
+            hashes.add(sha1);
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes);
+        long[] sizeArray = new long[sizes.size()];
+        for (int i = 0; i < sizeArray.length; i++) sizeArray[i] = sizes.get(i);
+
+        return new ModDetail(item,
+                names.toArray(new String[0]),
+                mcNames.toArray(new String[0]),
+                urls.toArray(new String[0]),
+                hashes.toArray(new String[0]),
+                loaders.toArray(new String[0]),
+                sizeArray);
+    }
+
+    /** Picks the file marked primary, or the first file if none is marked. Null if there are no files. */
+    private static JsonObject pickPrimaryFile(JsonObject version) {
+        JsonElement filesElement = version.get("files");
+        if (filesElement == null || !filesElement.isJsonArray()) return null;
+        JsonArray files = filesElement.getAsJsonArray();
+        JsonObject first = null;
+        for (JsonElement element : files) {
+            if (!element.isJsonObject()) continue;
+            JsonObject file = element.getAsJsonObject();
+            if (first == null) first = file;
+            JsonElement primary = file.get("primary");
+            if (primary != null && !primary.isJsonNull() && primary.getAsBoolean()) return file;
+        }
+        return first;
+    }
+
+    private static String getString(JsonObject object, String key) {
+        JsonElement element = object.get(key);
+        return element != null && !element.isJsonNull() ? element.getAsString() : null;
     }
 
     @Override
