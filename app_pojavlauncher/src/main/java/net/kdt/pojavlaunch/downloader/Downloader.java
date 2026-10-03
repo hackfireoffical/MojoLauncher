@@ -190,6 +190,19 @@ public class Downloader {
         copy(inputStream, outputStream, listener);
     }
 
+    private void copyLimited(InputStream inputStream, OutputStream outputStream, BytesCopiedListener listener, long maxBytes) throws IOException {
+        byte[] buffer = getBuffer();
+        long remaining = maxBytes;
+        int readLen;
+        while((readLen = inputStream.read(buffer, 0, remaining > 0 ? (int)Math.min(buffer.length, remaining) : buffer.length)) != -1) {
+            outputStream.write(buffer, 0, readLen);
+            if(listener != null) listener.onBytesCopied(readLen);
+            mInternetUsageCounter.getAndAdd(readLen);
+            if(remaining > 0) { remaining -= readLen; if(remaining == 0) break; }
+        }
+        if(maxBytes > 0 && remaining > 0) throw new IOException("Download ended early: " + (maxBytes - remaining) + "/" + maxBytes + " bytes");
+    }
+
     protected String downloadString(URL url) throws IOException {
         HttpURLConnection connection = openConnection(url);
         int length = connection.getContentLength();
@@ -203,6 +216,10 @@ public class Downloader {
     }
 
     protected void downloadFile(File file, URL url, BytesCopiedListener listener) throws IOException {
+        downloadFile(file, url, listener, -1, false);
+    }
+
+    protected void downloadFile(File file, URL url, BytesCopiedListener listener, long expectedLength, boolean append) throws IOException {
         HttpURLConnection connection = openConnection(url);
         try {
             connection.connect();
@@ -210,8 +227,9 @@ public class Downloader {
             if(responseCode < 200 || responseCode >= 300) {
                 throw new IOException("Download server returned HTTP " + responseCode + ": " + connection.getResponseMessage());
             }
-            try(FileOutputStream outputStream = new FileOutputStream(file)) {
-                downloadToStream(connection, outputStream, listener);
+            try(FileOutputStream outputStream = new FileOutputStream(file, append)) {
+                long remaining = expectedLength > 0 ? expectedLength - (append ? file.length() : 0) : -1;
+                copyLimited(connection.getInputStream(), outputStream, listener, remaining);
             }
         }finally {
             connection.disconnect();
@@ -229,7 +247,9 @@ public class Downloader {
                 return false;
             }
             try(FileOutputStream outputStream = new FileOutputStream(file, true)) {
-                downloadToStream(connection, outputStream, listener);
+                long remaining = wantedLength - file.length();
+                copyLimited(connection.getInputStream(), outputStream, listener, remaining);
+                if(file.length() != wantedLength) throw new IOException("Download ended early: " + file.length() + "/" + wantedLength + " bytes");
                 return true;
             }
         }finally {
