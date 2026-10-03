@@ -107,6 +107,7 @@ public class ModrinthApi implements ModpackApi{
         String[] urls = new String[response.size()];
         String[] hashes = new String[response.size()];
         String[] loaders = new String[response.size()];
+        long[] sizes = new long[response.size()];
 
         for (int i=0; i<response.size(); ++i) {
             JsonObject version = response.get(i).getAsJsonObject();
@@ -115,6 +116,8 @@ public class ModrinthApi implements ModpackApi{
             urls[i] = version.get("files").getAsJsonArray().get(0).getAsJsonObject().get("url").getAsString();
             JsonArray loaderArray = version.getAsJsonArray("loaders");
             loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
+            JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
+            sizes[i] = file.has("size") ? file.get("size").getAsLong() : -1;
 
             // Assume there may not be hashes, in case the API changes
             JsonObject hashesMap = version.getAsJsonArray("files").get(0).getAsJsonObject()
@@ -127,7 +130,7 @@ public class ModrinthApi implements ModpackApi{
             hashes[i] = hashesMap.get("sha1").getAsString();
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes, loaders);
+        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes);
     }
 
     @Override
@@ -140,7 +143,7 @@ public class ModrinthApi implements ModpackApi{
         downloads.add(new TaskMetadata(
                 new File(contentDirectory, fileName),
                 new URL(urlString),
-                -1,
+                modDetail.versionSizes[selectedVersion],
                 modDetail.versionHashes[selectedVersion],
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
         try {
