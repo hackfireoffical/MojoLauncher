@@ -28,14 +28,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="@dimen/_30sdp"
-        app:layout_constraintTop_toBottomOf="@id/mod_extended_minecraft_spinner" />
+        app:layout_constraintTop_toBottomOf="@id/mod_extended_versions_title" />
 
     <ScrollView
         android:id="@+id/mod_extended_version_scroll"
         android:layout_width="match_parent"
         android:layout_height="180dp"
         android:fillViewport="true"
-        app:layout_constraintTop_toBottomOf="@id/mod_extended_versions_title">
+        app:layout_constraintTop_toBottomOf="@id/mod_extended_minecraft_spinner">
 
         <LinearLayout
             android:id="@+id/mod_extended_version_list"
