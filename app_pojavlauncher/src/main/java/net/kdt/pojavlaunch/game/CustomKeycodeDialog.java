@@ -20,6 +20,7 @@ import java.util.List;
 import git.artdeell.mojo.R;
 
 public final class CustomKeycodeDialog {
+    public interface SelectionListener { void onSelected(int keycode); }
     private final Context context;
     private final List<Entry> entries = new ArrayList<>();
     private int selected = -1;
@@ -39,10 +40,14 @@ public final class CustomKeycodeDialog {
     }
 
     public static void show(@NonNull Context context) {
-        new CustomKeycodeDialog(context).show();
+        new CustomKeycodeDialog(context).show(null);
     }
 
-    private void show() {
+    public static void show(@NonNull Context context, @NonNull SelectionListener listener) {
+        new CustomKeycodeDialog(context).show(listener);
+    }
+
+    private void show(SelectionListener listener) {
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(10), dp(10), dp(10), dp(8));
@@ -63,7 +68,11 @@ public final class CustomKeycodeDialog {
         confirm.setAlpha(.55f);
         confirm.setOnClickListener(v -> {
             if (selected != -1) {
-                CallbackBridge.sendKeyPress(selected);
+                if (listener != null) {
+                    listener.onSelected(selected);
+                } else {
+                    CallbackBridge.sendKeyPress(selected);
+                }
                 dialog.dismiss();
             }
         });
