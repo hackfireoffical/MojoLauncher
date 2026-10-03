@@ -146,6 +146,34 @@ public class CurseforgeApi implements ModpackApi{
     }
 
     @Override
+    public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
+        String urlString = modDetail.versionUrls[selectedVersion];
+        if (urlString == null || urlString.isEmpty()) {
+            throw new IOException("This CurseForge file has no downloadable URL");
+        }
+        String fileName = getJarFileName(urlString, modDetail.title);
+        File modsDirectory = new File(instanceDirectory, "mods");
+        FileUtils.ensureDirectory(modsDirectory);
+        ArrayList<TaskMetadata> downloads = new ArrayList<>(1);
+        downloads.add(new TaskMetadata(
+                new File(modsDirectory, fileName),
+                new URL(urlString),
+                0,
+                modDetail.versionHashes[selectedVersion],
+                DownloadMirror.DOWNLOAD_CLASS_NONE));
+        new SingleModDownloader().start(downloads);
+    }
+
+    private String getJarFileName(String urlString, String title) {
+        try {
+            String path = new URL(urlString).getPath();
+            String name = new File(URLDecoder.decode(path, "UTF-8")).getName();
+            if (name != null && name.toLowerCase().endsWith(".jar")) return name;
+        } catch (Exception ignored) {}
+        return title.replaceAll("[^A-Za-z0-9._-]", "_") + ".jar";
+    }
+
+    @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException{
         //TODO considering only modpacks for now
         return ModpackInstaller.downloadModpack(modDetail, selectedVersion, this::installCurseforgeZip);
@@ -296,6 +324,13 @@ public class CurseforgeApi implements ModpackApi{
 
     static class CurseforgeSearchResult extends SearchResult {
         int previousOffset;
+    }
+
+    class SingleModDownloader extends Downloader {
+        SingleModDownloader() { super(ProgressLayout.INSTALL_MODPACK); }
+        void start(ArrayList<TaskMetadata> tasks) throws IOException, InterruptedException {
+            runDownloads(tasks);
+        }
     }
 
     class CurseDownloader extends Downloader {
