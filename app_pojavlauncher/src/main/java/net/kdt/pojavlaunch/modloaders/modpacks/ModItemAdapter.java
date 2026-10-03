@@ -45,11 +45,14 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> implements TaskCountListener {
     private static final ModItem[] MOD_ITEMS_EMPTY = new ModItem[0];
     private static final int VIEW_TYPE_MOD_ITEM = 0;
     private static final int VIEW_TYPE_LOADING = 1;
+    private static final Pattern NEOFORGE_VERSION_PATTERN = Pattern.compile("neoforge[-_]?(\\d+)\\.(\\d+)");
 
     /* Used when versions haven't loaded yet, default text to reduce layout shifting */
     private final SimpleArrayAdapter<String> mLoadingAdapter = new SimpleArrayAdapter<>(Collections.singletonList("Loading"));
@@ -172,14 +175,33 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
-     * True if the instance version id (e.g. "fabric-loader-0.16.9-1.21.1", "1.20.1-forge-47.2.0")
-     * refers to exactly this Minecraft version. Plain contains() wrongly matched 1.21.1 inside 1.21.11.
+     * True if the instance version id (e.g. "fabric-loader-0.16.9-1.21.1", "1.20.1-forge-47.2.0",
+     * "neoforge-21.1.50") refers to exactly this Minecraft version. Plain contains() wrongly
+     * matched 1.21.1 inside 1.21.11.
      */
     private static boolean instanceMatchesVersion(String instanceVersionId, String version) {
-        return instanceVersionId.equals(version)
+        if (instanceVersionId.equals(version)
                 || instanceVersionId.startsWith(version + "-")
                 || instanceVersionId.endsWith("-" + version)
-                || instanceVersionId.contains("-" + version + "-");
+                || instanceVersionId.contains("-" + version + "-")) return true;
+        String neoForgeMinecraft = neoForgeMinecraftVersion(instanceVersionId);
+        return neoForgeMinecraft != null && neoForgeMinecraft.equals(version);
+    }
+
+    /**
+     * NeoForge ids don't contain the Minecraft version, but encode it: neoforge-21.1.50 is
+     * Minecraft 1.21.1, 21.0.x is 1.21, 20.4.x is 1.20.4. From 26.x on the numbers match the
+     * Minecraft version directly (best effort).
+     */
+    private static String neoForgeMinecraftVersion(String instanceVersionId) {
+        Matcher matcher = NEOFORGE_VERSION_PATTERN.matcher(instanceVersionId.toLowerCase());
+        if (!matcher.find()) return null;
+        long major = parseLongSafe(matcher.group(1));
+        long minor = parseLongSafe(matcher.group(2));
+        if (major < 0 || minor < 0) return null;
+        if (major >= 26) return major + "." + minor;
+        if (major < 20) return null;
+        return minor == 0 ? "1." + major : "1." + major + "." + minor;
     }
 
     /** True if any loader in a comma-separated loader string matches the preferred loader (Quilt also runs Fabric mods). */
