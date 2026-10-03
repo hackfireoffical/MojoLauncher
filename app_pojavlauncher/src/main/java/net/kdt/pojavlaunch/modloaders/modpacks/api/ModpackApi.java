@@ -13,6 +13,8 @@ import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModItem;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchFilters;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchResult;
+import net.kdt.pojavlaunch.instances.Instance;
+import net.kdt.pojavlaunch.instances.Instances;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,6 +59,24 @@ public interface ModpackApi {
             try {
                 installModpack(modDetail, selectedVersion);
             }catch (IOException e) {
+                Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
+            }
+        });
+    }
+
+    /**
+     * Download a single mod into the selected instance's mods directory.
+     */
+    void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException;
+
+    default void handleModInstallation(Context context, ModDetail modDetail, int selectedVersion) {
+        ProgressLayout.setProgress(ProgressLayout.INSTALL_MODPACK, 0, R.string.global_waiting);
+        PojavApplication.sExecutorService.execute(() -> {
+            try {
+                Instance instance = Instances.loadSelectedInstance();
+                if (instance == null) throw new IOException("No instance selected");
+                installMod(modDetail, selectedVersion, instance.getGameDirectory());
+            } catch (IOException e) {
                 Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
             }
         });
