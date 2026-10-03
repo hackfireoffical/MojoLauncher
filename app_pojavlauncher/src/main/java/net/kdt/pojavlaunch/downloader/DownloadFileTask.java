@@ -24,7 +24,7 @@ public class DownloadFileTask extends DownloaderTask implements BytesCopiedListe
         try {
             if(!mMetadata.path.exists() || !rangeAllowed) {
                 mBytesDownloaded.set(0);
-                mDownloader.downloadFile(mMetadata.path, mMetadata.url, this);
+                mDownloader.downloadFile(mMetadata.path, mMetadata.url, this, mMetadata.size, false);
             } else {
                 long alreadyDownloaded = mMetadata.path.length();
                 mBytesDownloaded.set(alreadyDownloaded);
