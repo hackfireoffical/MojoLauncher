@@ -40,7 +40,7 @@ public final class CustomKeycodeDialog {
     }
 
     public static void show(@NonNull Context context) {
-        new CustomKeycodeDialog(context).show(null);
+        new CustomKeycodeDialog(context).show((SelectionListener) null);
     }
 
     public static void show(@NonNull Context context, @NonNull SelectionListener listener) {
