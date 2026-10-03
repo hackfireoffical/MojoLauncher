@@ -8,23 +8,19 @@ import com.kdt.mcgui.ProgressLayout;
 import net.kdt.pojavlaunch.PojavApplication;
 import git.artdeell.mojo.R;
 import net.kdt.pojavlaunch.Tools;
+import net.kdt.pojavlaunch.content.ContentManager;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.LoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModItem;
-import net.kdt.pojavlaunch.modloaders.modpacks.models.Constants;
-import net.kdt.pojavlaunch.modloaders.modpacks.InstalledModManager;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchFilters;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchResult;
-import net.kdt.pojavlaunch.instances.Instance;
-import net.kdt.pojavlaunch.instances.Instances;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
- *
+ * Search and modpack API. Installing single mods, shaders and resource packs (including their
+ * dependencies) is handled by net.kdt.pojavlaunch.content.ContentManager, not by this interface.
  */
 public interface ModpackApi {
 
@@ -62,123 +58,31 @@ public interface ModpackApi {
         PojavApplication.sExecutorService.execute(() -> {
             try {
                 installModpack(modDetail, selectedVersion);
-            }catch (IOException e) {
-                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
+            } catch (Exception e) {
                 Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
+            } finally {
+                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
             }
         });
     }
 
     /**
-     * Download a single mod into the selected instance's mods directory.
+     * Legacy single-file installer, superseded by ContentManager.
+     * @deprecated nothing calls this any more; it only exists until the old implementations are deleted.
      */
-    void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException;
+    @Deprecated
+    default void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
+        throw new UnsupportedOperationException("Use ContentManager to install content");
+    }
 
+    /** Installs only the selected file. Kept for older callers; delegates to ContentManager. */
     default void handleModInstallation(Context context, ModDetail modDetail, int selectedVersion) {
-        ProgressLayout.setProgress(ProgressLayout.INSTALL_MODPACK, 0, R.string.global_waiting);
-        PojavApplication.sExecutorService.execute(() -> {
-            try {
-                Instance instance = Instances.loadSelectedInstance();
-                if (instance == null) throw new IOException("No instance selected");
-                installMod(modDetail, selectedVersion, instance.getGameDirectory());
-            } catch (IOException e) {
-                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
-                Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
-            }
-        });
+        ContentManager.installFromDetail(context, modDetail, selectedVersion, false);
     }
 
-    /**
-     * Installs a mod and, when requested, its required dependencies for the
-     * same Minecraft version and loader.
-     */
-    default void installModWithDependencies(ModDetail modDetail, int selectedVersion,
-                                             File instanceDirectory) throws IOException {
-        Instance instance = Instances.loadSelectedInstance();
-        if (instance == null) throw new IOException("No instance selected");
-        String mcVersion = modDetail.mcVersionNames[selectedVersion];
-        String loader = modDetail.loaderNames != null && selectedVersion < modDetail.loaderNames.length
-                ? modDetail.loaderNames[selectedVersion] : "Unknown";
-        installModWithDependenciesRecursive(modDetail, selectedVersion, instanceDirectory,
-                mcVersion, loader, new HashSet<String>());
-    }
-
-    default void installModWithDependenciesRecursive(ModDetail detail, int version,
-                                                       File instanceDirectory, String mcVersion,
-                                                       String loader, Set<String> visited) throws IOException {
-        String visitKey = detail.apiSource + ":" + detail.id;
-        if (!visited.add(visitKey)) return;
-
-        String[] dependencyIds = detail.versionDependencyIds != null && version < detail.versionDependencyIds.length
-                ? detail.versionDependencyIds[version] : null;
-        if (dependencyIds != null) {
-            for (String dependencyId : dependencyIds) {
-                if (dependencyId == null || dependencyId.isEmpty()) continue;
-
-                if (isDependencyInstalled(instanceDirectory, dependencyId)) continue;
-
-                ModItem dependencyItem = new ModItem(detail.apiSource, false, dependencyId,
-                        dependencyId, "", "");
-                dependencyItem.contentType = Constants.CONTENT_MOD;
-                ModDetail dependencyDetail = getModDetails(dependencyItem);
-                if (dependencyDetail == null) {
-                    throw new IOException("Could not resolve required dependency: " + dependencyId);
-                }
-
-                int dependencyVersion = findCompatibleVersion(dependencyDetail, mcVersion, loader);
-                if (dependencyVersion < 0) {
-                    throw new IOException("No compatible version found for required dependency: "
-                            + dependencyDetail.title);
-                }
-
-                installModWithDependenciesRecursive(dependencyDetail, dependencyVersion,
-                        instanceDirectory, mcVersion, loader, visited);
-            }
-        }
-
-        installMod(detail, version, instanceDirectory);
-    }
-
-    default int findCompatibleVersion(ModDetail detail, String mcVersion, String loader) {
-        for (int i = 0; i < detail.versionNames.length; i++) {
-            if (!containsMinecraftVersion(detail.mcVersionNames[i], mcVersion)) continue;
-            if (loader == null || "Unknown".equalsIgnoreCase(loader)) return i;
-            if (detail.loaderNames != null && i < detail.loaderNames.length
-                    && loader.equalsIgnoreCase(detail.loaderNames[i])) return i;
-        }
-        return -1;
-    }
-
-    default boolean containsMinecraftVersion(String versions, String requested) {
-        if (versions == null || requested == null) return false;
-        for (String version : versions.split(",\\s*")) {
-            if (requested.equals(version.trim())) return true;
-        }
-        return false;
-    }
-
-    default boolean isDependencyInstalled(File instanceDirectory, String dependencyId) {
-        File modsDirectory = new File(instanceDirectory, "mods");
-        com.google.gson.JsonArray entries = InstalledModManager.read(modsDirectory);
-        for (int i = 0; i < entries.size(); i++) {
-            com.google.gson.JsonObject entry = entries.get(i).getAsJsonObject();
-            if (entry.has("id") && dependencyId.equals(entry.get("id").getAsString())) return true;
-        }
-        return false;
-    }
-
+    /** Installs the selected file with its required dependencies. Delegates to ContentManager. */
     default void handleModInstallationWithDependencies(Context context, ModDetail modDetail, int selectedVersion) {
-        ProgressLayout.setProgress(ProgressLayout.INSTALL_MODPACK, 0, R.string.global_waiting);
-        PojavApplication.sExecutorService.execute(() -> {
-            try {
-                Instance instance = Instances.loadSelectedInstance();
-                if (instance == null) throw new IOException("No instance selected");
-                installModWithDependencies(modDetail, selectedVersion, instance.getGameDirectory());
-            } catch (IOException e) {
-                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
-                Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
-            }
-        });
+        ContentManager.installFromDetail(context, modDetail, selectedVersion, true);
     }
 
     LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException;

@@ -3,6 +3,8 @@ package net.kdt.pojavlaunch.modloaders.modpacks.models;
 
 import androidx.annotation.NonNull;
 
+import net.kdt.pojavlaunch.content.ContentVersion;
+
 import java.util.Arrays;
 
 public class ModDetail extends ModItem {
@@ -19,6 +21,11 @@ public class ModDetail extends ModItem {
     public String[][] versionDependencies;
     /** Required dependency project IDs for each downloadable version. */
     public String[][] versionDependencyIds;
+    /**
+     * The full version data (ids, dependencies, stability...) for mods, shaders and resource packs,
+     * index-aligned with the arrays above. Null for modpacks.
+     */
+    public ContentVersion[] contentVersions;
     public ModDetail(ModItem item, String[] versionNames, String[] mcVersionNames, String[] versionUrls, String[] hashes, String[] loaderNames, long[] versionSizes, String[][] versionDependencies, String[][] versionDependencyIds) {
         super(item.apiSource, item.isModpack, item.id, item.title, item.description, item.imageUrl);
         this.contentType = item.contentType;

@@ -2,9 +2,10 @@ package net.kdt.pojavlaunch.modloaders.modpacks.api;
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-
 import net.kdt.pojavlaunch.PojavApplication;
+import net.kdt.pojavlaunch.content.ContentDetails;
+import net.kdt.pojavlaunch.content.ContentProvider;
+import net.kdt.pojavlaunch.content.ContentProviders;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.LoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.Constants;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
@@ -22,7 +23,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Group all apis under the same umbrella, as another layer of abstraction
+ * Group all apis under the same umbrella, as another layer of abstraction.
+ * Search and modpacks go through the per-source APIs; details of mods, shaders and resource packs
+ * come from the content system's providers.
  */
 public class CommonApi implements ModpackApi {
 
@@ -35,6 +38,8 @@ public class CommonApi implements ModpackApi {
     public static final byte PACK_UNDEFINED = 0;
 
     public CommonApi(String curseforgeApiKey) {
+        // The content system needs the key too (dependency lookups, details, updates)
+        ContentProviders.configure(curseforgeApiKey);
         mModrinthApi = new ModrinthApi();
         if ("DUMMY".equals(curseforgeApiKey)) {
             mCurseforgeApi = null;
@@ -121,19 +126,26 @@ public class CommonApi implements ModpackApi {
     @Override
     public ModDetail getModDetails(ModItem item) {
         Log.i("CommonApi", "Invoking getModDetails on item.apiSource="+item.apiSource +" item.title="+item.title);
-        return getModpackApi(item.apiSource).getModDetails(item);
-    }
-
-    @Override
-    public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
-        ModpackApi api = getModpackApi(modDetail.apiSource);
-        if (api == null) throw new IOException("Mod source is unavailable");
-        api.installMod(modDetail, selectedVersion, instanceDirectory);
+        if (!item.isModpack) {
+            // Mods, shaders and resource packs: handled by the content system
+            ContentProvider provider = ContentProviders.get(item.apiSource);
+            if (provider == null) return null;
+            try {
+                return ContentDetails.load(item, provider);
+            } catch (IOException e) {
+                Log.e("CommonApi", "Could not load details for " + item.title, e);
+                return null;
+            }
+        }
+        ModpackApi api = getModpackApi(item.apiSource);
+        return api == null ? null : api.getModDetails(item);
     }
 
     @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException {
-        return getModpackApi(modDetail.apiSource).installModpack(modDetail, selectedVersion);
+        ModpackApi api = getModpackApi(modDetail.apiSource);
+        if (api == null) throw new IOException("Modpack source is unavailable");
+        return api.installModpack(modDetail, selectedVersion);
     }
 
     public LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException {
@@ -152,13 +164,13 @@ public class CommonApi implements ModpackApi {
         }
     }
 
-    private @NonNull ModpackApi getModpackApi(int apiSource) {
+    /** @return the API for that source, or null if it is unavailable (CurseForge without a key) */
+    private ModpackApi getModpackApi(int apiSource) {
         switch (apiSource) {
             case Constants.SOURCE_MODRINTH:
                 return mModrinthApi;
             case Constants.SOURCE_CURSEFORGE:
-                if (mCurseforgeApi == null) return null;
-                else return mCurseforgeApi;
+                return mCurseforgeApi;
             default:
                 throw new UnsupportedOperationException("Unknown API source: " + apiSource);
         }
