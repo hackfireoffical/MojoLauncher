@@ -167,6 +167,20 @@ public interface ModpackApi {
         return false;
     }
 
+    default void handleModInstallationWithDependencies(Context context, ModDetail modDetail, int selectedVersion) {
+        ProgressLayout.setProgress(ProgressLayout.INSTALL_MODPACK, 0, R.string.global_waiting);
+        PojavApplication.sExecutorService.execute(() -> {
+            try {
+                Instance instance = Instances.loadSelectedInstance();
+                if (instance == null) throw new IOException("No instance selected");
+                installModWithDependencies(modDetail, selectedVersion, instance.getGameDirectory());
+            } catch (IOException e) {
+                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
+                Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
+            }
+        });
+    }
+
     LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException;
 
     /**
