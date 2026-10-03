@@ -109,6 +109,7 @@ public class ModrinthApi implements ModpackApi{
         String[] hashes = new String[response.size()];
         String[] loaders = new String[response.size()];
         long[] sizes = new long[response.size()];
+        String[][] dependencies = new String[response.size()][];
 
         for (int i=0; i<response.size(); ++i) {
             JsonObject version = response.get(i).getAsJsonObject();
@@ -123,6 +124,25 @@ public class ModrinthApi implements ModpackApi{
             urls[i] = version.get("files").getAsJsonArray().get(0).getAsJsonObject().get("url").getAsString();
             JsonArray loaderArray = version.getAsJsonArray("loaders");
             loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
+            JsonArray dependencyArray = version.getAsJsonArray("dependencies");
+            ArrayList<String> requiredDependencies = new ArrayList<>();
+            if (dependencyArray != null) {
+                for (JsonElement dependencyElement : dependencyArray) {
+                    JsonObject dependency = dependencyElement.getAsJsonObject();
+                    String type = dependency.has("dependency_type") ? dependency.get("dependency_type").getAsString() : "";
+                    if (!"required".equalsIgnoreCase(type)) continue;
+                    String projectId = dependency.has("project_id") && !dependency.get("project_id").isJsonNull() ? dependency.get("project_id").getAsString() : null;
+                    if (projectId == null || projectId.isEmpty()) continue;
+                    String dependencyName = projectId;
+                    try {
+                        JsonObject project = mApiHandler.get("project/" + projectId, null, JsonObject.class);
+                        if (project != null && project.has("title")) dependencyName = project.get("title").getAsString();
+                    } catch (Exception ignored) {}
+                    requiredDependencies.add(dependencyName);
+                }
+            }
+            dependencies[i] = requiredDependencies.toArray(new String[0]);
+
             JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
             sizes[i] = file.has("size") ? file.get("size").getAsLong() : -1;
 
@@ -137,7 +157,7 @@ public class ModrinthApi implements ModpackApi{
             hashes[i] = hashesMap.get("sha1").getAsString();
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes);
+        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes, dependencies);
     }
 
     @Override
