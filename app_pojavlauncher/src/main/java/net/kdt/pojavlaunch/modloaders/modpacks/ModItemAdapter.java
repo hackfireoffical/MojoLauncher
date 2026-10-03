@@ -10,6 +10,8 @@ import android.view.ViewStub;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -34,6 +36,8 @@ import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchResult;
 import net.kdt.pojavlaunch.progresskeeper.TaskCountListener;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -155,6 +159,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final ImageView mIconView, mSourceView;
         private View mExtendedLayout;
         private LinearLayout mVersionList;
+        private Spinner mMinecraftSpinner;
         private Button mExtendedButton;
         private int mSelectedVersion = -1;
         private TextView mExtendedErrorTextView;
@@ -172,6 +177,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     mExtendedLayout = ((ViewStub)v.findViewById(R.id.mod_limited_state_stub)).inflate();
                     mExtendedButton = mExtendedLayout.findViewById(R.id.mod_extended_select_version_button);
                     mVersionList = mExtendedLayout.findViewById(R.id.mod_extended_version_list);
+                    mMinecraftSpinner = mExtendedLayout.findViewById(R.id.mod_extended_minecraft_spinner);
                     mExtendedErrorTextView = mExtendedLayout.findViewById(R.id.mod_extended_error_textview);
 
                     mExtendedButton.setOnClickListener(v1 -> {
@@ -184,7 +190,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             mModpackApi.handleModInstallation(
                                     mExtendedButton.getContext().getApplicationContext(),
                                     mModDetail,
-                                    mExtendedSpinner.getSelectedItemPosition());
+                                    mSelectedVersion);
                         }
                     });
                     mVersionList.removeAllViews();
@@ -279,41 +285,39 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             if(detailedItem != null) {
                 mExtendedErrorTextView.setVisibility(View.GONE);
                 mVersionList.removeAllViews();
-                mSelectedVersion = detailedItem.versionNames.length > 0 ? 0 : -1;
 
-                for (int i = 0; i < detailedItem.versionNames.length; i++) {
-                    final int versionIndex = i;
-                    LinearLayout row = new LinearLayout(mVersionList.getContext());
-                    row.setOrientation(LinearLayout.HORIZONTAL);
-                    row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-                    row.setPadding(12, 10, 12, 10);
-
-                    ImageView loaderIcon = new ImageView(mVersionList.getContext());
-                    String loader = detailedItem.loaderNames != null && i < detailedItem.loaderNames.length ? detailedItem.loaderNames[i] : "Unknown";
-                    int loaderDrawable = getLoaderDrawable(loader);
-                    if (loaderDrawable != 0) {
-                        loaderIcon.setImageResource(loaderDrawable);
-                        int size = (int) (32 * mVersionList.getResources().getDisplayMetrics().density);
-                        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size, size);
-                        iconParams.setMarginEnd(12);
-                        row.addView(loaderIcon, iconParams);
-                    }
-
-                    TextView versionText = new TextView(mVersionList.getContext());
-                    versionText.setText(detailedItem.versionNames[i] + "  •  " + loader);
-                    versionText.setTextSize(15);
-                    versionText.setTextColor(mVersionList.getResources().getColor(R.color.primary_text));
-                    row.addView(versionText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-
-                    row.setOnClickListener(v -> {
-                        mSelectedVersion = versionIndex;
-                        updateVersionSelection();
-                        setInstallEnabled(true);
-                    });
-                    mVersionList.addView(row, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+                LinkedHashSet<String> versionSet = new LinkedHashSet<>();
+                for (String version : detailedItem.mcVersionNames) {
+                    if (version != null && !version.isEmpty()) versionSet.add(version);
                 }
-                updateVersionSelection();
-                setInstallEnabled(mSelectedVersion >= 0);
+                ArrayList<String> minecraftVersions = new ArrayList<>(versionSet);
+
+                ArrayAdapter<String> minecraftAdapter = new ArrayAdapter<>(
+                        mMinecraftSpinner.getContext(),
+                        android.R.layout.simple_spinner_item,
+                        minecraftVersions);
+                minecraftAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                mMinecraftSpinner.setAdapter(minecraftAdapter);
+
+                int initialMinecraft = 0;
+                if (mSearchFilters != null && mSearchFilters.mcVersion != null) {
+                    int requested = minecraftVersions.indexOf(mSearchFilters.mcVersion);
+                    if (requested >= 0) initialMinecraft = requested;
+                }
+
+                mMinecraftSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        populateModVersions(detailedItem, minecraftVersions.get(position));
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+                if (!minecraftVersions.isEmpty()) {
+                    mMinecraftSpinner.setSelection(initialMinecraft);
+                    populateModVersions(detailedItem, minecraftVersions.get(initialMinecraft));
+                } else {
+                    mSelectedVersion = -1;
+                    setInstallEnabled(false);
+                }
             } else {
                 closeDetailedView();
                 setInstallEnabled(false);
@@ -322,6 +326,58 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 mExtendedErrorTextView.setVisibility(View.VISIBLE);
             }
         }
+
+        private void populateModVersions(ModDetail detailedItem, String minecraftVersion) {
+            mVersionList.removeAllViews();
+            mSelectedVersion = -1;
+
+            for (int i = 0; i < detailedItem.versionNames.length; i++) {
+                if (!minecraftVersion.equals(detailedItem.mcVersionNames[i])) continue;
+
+                final int versionIndex = i;
+                LinearLayout row = new LinearLayout(mVersionList.getContext());
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                row.setPadding(12, 10, 12, 10);
+
+                ImageView loaderIcon = new ImageView(mVersionList.getContext());
+                String loader = detailedItem.loaderNames != null && i < detailedItem.loaderNames.length
+                        ? detailedItem.loaderNames[i] : "Unknown";
+                int loaderDrawable = getLoaderDrawable(loader);
+                if (loaderDrawable != 0) {
+                    loaderIcon.setImageResource(loaderDrawable);
+                    int size = (int) (32 * mVersionList.getResources().getDisplayMetrics().density);
+                    LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size, size);
+                    iconParams.setMarginEnd(12);
+                    row.addView(loaderIcon, iconParams);
+                }
+
+                TextView versionText = new TextView(mVersionList.getContext());
+                versionText.setText(detailedItem.versionNames[i] + "  •  " + loader);
+                versionText.setTextSize(15);
+                versionText.setTextColor(mVersionList.getResources().getColor(R.color.primary_text));
+                row.addView(versionText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                row.setOnClickListener(v -> {
+                    mSelectedVersion = versionIndex;
+                    updateVersionSelection();
+                    setInstallEnabled(true);
+                });
+                mVersionList.addView(row, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                // APIs normally return newest versions first, so the first compatible
+                // version becomes the automatic selection.
+                if (mSelectedVersion == -1) {
+                    mSelectedVersion = versionIndex;
+                }
+            }
+
+            updateVersionSelection();
+            setInstallEnabled(mSelectedVersion >= 0);
+        }
+
 
         private void openDetailedView() {
             mExtendedLayout.setVisibility(View.VISIBLE);
