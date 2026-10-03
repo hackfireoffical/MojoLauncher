@@ -53,7 +53,7 @@
         android:layout_height="wrap_content"
         android:text="@string/search_mod_content_type"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/search_mod_mc_version_textview" />
+        app:layout_constraintTop_toBottomOf="@id/search_mod_selected_mc_version_textview" />
 
     <Spinner
         android:id="@+id/search_mod_content_type_spinner"
