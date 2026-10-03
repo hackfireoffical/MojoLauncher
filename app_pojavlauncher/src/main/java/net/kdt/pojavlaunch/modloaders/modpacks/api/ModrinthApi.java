@@ -111,6 +111,7 @@ public class ModrinthApi implements ModpackApi{
         String[] loaders = new String[response.size()];
         long[] sizes = new long[response.size()];
         String[][] dependencies = new String[response.size()][];
+        String[][] dependencyIds = new String[response.size()][];
 
         for (int i=0; i<response.size(); ++i) {
             JsonObject version = response.get(i).getAsJsonObject();
@@ -127,6 +128,7 @@ public class ModrinthApi implements ModpackApi{
             loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
             JsonArray dependencyArray = version.getAsJsonArray("dependencies");
             ArrayList<String> requiredDependencies = new ArrayList<>();
+            ArrayList<String> requiredDependencyIds = new ArrayList<>();
             if (dependencyArray != null) {
                 for (JsonElement dependencyElement : dependencyArray) {
                     JsonObject dependency = dependencyElement.getAsJsonObject();
@@ -140,9 +142,11 @@ public class ModrinthApi implements ModpackApi{
                         if (project != null && project.has("title")) dependencyName = project.get("title").getAsString();
                     } catch (Exception ignored) {}
                     requiredDependencies.add(dependencyName);
+                    requiredDependencyIds.add(projectId);
                 }
             }
             dependencies[i] = requiredDependencies.toArray(new String[0]);
+            dependencyIds[i] = requiredDependencyIds.toArray(new String[0]);
 
             JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
             sizes[i] = file.has("size") ? file.get("size").getAsLong() : -1;
@@ -158,7 +162,7 @@ public class ModrinthApi implements ModpackApi{
             hashes[i] = hashesMap.get("sha1").getAsString();
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes, dependencies);
+        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes, dependencies, dependencyIds);
     }
 
     @Override
