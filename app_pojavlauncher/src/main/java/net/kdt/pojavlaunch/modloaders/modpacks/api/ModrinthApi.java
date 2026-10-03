@@ -1,6 +1,7 @@
 package net.kdt.pojavlaunch.modloaders.modpacks.api;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.kdt.mcgui.ProgressLayout;
 
