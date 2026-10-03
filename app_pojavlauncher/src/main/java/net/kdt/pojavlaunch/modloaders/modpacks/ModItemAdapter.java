@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -182,19 +183,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     mMinecraftSpinner = mExtendedLayout.findViewById(R.id.mod_extended_minecraft_spinner);
                     mExtendedErrorTextView = mExtendedLayout.findViewById(R.id.mod_extended_error_textview);
 
-                    mExtendedButton.setOnClickListener(v1 -> {
-                        if (mModDetail.isModpack) {
-                            mModpackApi.handleModpackInstallation(
-                                    mExtendedButton.getContext().getApplicationContext(),
-                                    mModDetail,
-                                    mSelectedVersion);
-                        } else {
-                            mModpackApi.handleModInstallation(
-                                    mExtendedButton.getContext().getApplicationContext(),
-                                    mModDetail,
-                                    mSelectedVersion);
-                        }
-                    });
+                    mExtendedButton.setOnClickListener(v1 -> installSelectedVersion());
                     mVersionList.removeAllViews();
                 } else {
                     if(isExtended()) closeDetailedView();
@@ -416,6 +405,37 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             setInstallEnabled(mSelectedVersion >= 0);
         }
 
+
+        private void installSelectedVersion() {
+            if (mSelectedVersion < 0 || mModDetail == null) return;
+            if (mModDetail.isModpack || mModDetail.versionDependencies == null
+                    || mSelectedVersion >= mModDetail.versionDependencies.length
+                    || mModDetail.versionDependencies[mSelectedVersion] == null
+                    || mModDetail.versionDependencies[mSelectedVersion].length == 0) {
+                mModpackApi.handleModInstallation(
+                        mExtendedButton.getContext().getApplicationContext(),
+                        mModDetail,
+                        mSelectedVersion);
+                return;
+            }
+
+            StringBuilder message = new StringBuilder("This mod requires these mods:\n\n");
+            for (String dependency : mModDetail.versionDependencies[mSelectedVersion]) {
+                message.append("• ").append(dependency).append('\n');
+            }
+            message.append("\nThese dependencies may be required for the mod to work correctly.");
+
+            new AlertDialog.Builder(mExtendedButton.getContext())
+                    .setTitle("Required dependencies")
+                    .setMessage(message.toString())
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Download anyway", (dialog, which) ->
+                            mModpackApi.handleModInstallation(
+                                    mExtendedButton.getContext().getApplicationContext(),
+                                    mModDetail,
+                                    mSelectedVersion))
+                    .show();
+        }
 
         private void openDetailedView() {
             mExtendedLayout.setVisibility(View.VISIBLE);
