@@ -13,6 +13,7 @@ import com.kdt.mcgui.ProgressLayout;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.downloader.AcquireableTaskMetadata;
 import net.kdt.pojavlaunch.downloader.Downloader;
+import net.kdt.pojavlaunch.downloader.TaskMetadata;
 import net.kdt.pojavlaunch.mirrors.DownloadMirror;
 import net.kdt.pojavlaunch.modloaders.FabriclikeUtils;
 import net.kdt.pojavlaunch.modloaders.ForgelikeUtils;
