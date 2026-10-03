@@ -14,6 +14,12 @@
         >
 
         <Preference
+            android:key="content_downloader"
+            android:title="@string/preference_content_downloader_title"
+            android:summary="@string/preference_content_downloader_description"
+            android:fragment="net.kdt.pojavlaunch.prefs.screens.ContentDownloaderFragment"/>
+
+    <Preference
             android:key="video_screen_setting"
             android:title="@string/preference_video_title"
             android:summary="@string/preference_video_description"
