@@ -9,7 +9,7 @@ import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.Spinner;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -154,16 +154,14 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final TextView mTitle, mDescription;
         private final ImageView mIconView, mSourceView;
         private View mExtendedLayout;
-        private Spinner mExtendedSpinner;
+        private LinearLayout mVersionList;
         private Button mExtendedButton;
+        private int mSelectedVersion = -1;
         private TextView mExtendedErrorTextView;
         private Future<?> mExtensionFuture;
         private Bitmap mThumbnailBitmap;
         private ImageReceiver mImageReceiver;
         private boolean mInstallEnabled;
-
-        /* Used to display available versions of the mod(pack) */
-        private final SimpleArrayAdapter<String> mVersionAdapter = new SimpleArrayAdapter<>(null);
 
         public ViewHolder(View view) {
             super(view);
@@ -173,7 +171,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     // Inflate the ViewStub
                     mExtendedLayout = ((ViewStub)v.findViewById(R.id.mod_limited_state_stub)).inflate();
                     mExtendedButton = mExtendedLayout.findViewById(R.id.mod_extended_select_version_button);
-                    mExtendedSpinner = mExtendedLayout.findViewById(R.id.mod_extended_version_spinner);
+                    mVersionList = mExtendedLayout.findViewById(R.id.mod_extended_version_list);
                     mExtendedErrorTextView = mExtendedLayout.findViewById(R.id.mod_extended_error_textview);
 
                     mExtendedButton.setOnClickListener(v1 -> {
@@ -181,7 +179,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             mModpackApi.handleModpackInstallation(
                                     mExtendedButton.getContext().getApplicationContext(),
                                     mModDetail,
-                                    mExtendedSpinner.getSelectedItemPosition());
+                                    mSelectedVersion);
                         } else {
                             mModpackApi.handleModInstallation(
                                     mExtendedButton.getContext().getApplicationContext(),
@@ -189,7 +187,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                     mExtendedSpinner.getSelectedItemPosition());
                         }
                     });
-                    mExtendedSpinner.setAdapter(mLoadingAdapter);
+                    mVersionList.removeAllViews();
                 } else {
                     if(isExtended()) closeDetailedView();
                     else openDetailedView();
@@ -279,16 +277,49 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         /** Display extended info/interaction about a modpack */
         private void setStateDetailed(ModDetail detailedItem) {
             if(detailedItem != null) {
-                setInstallEnabled(true);
                 mExtendedErrorTextView.setVisibility(View.GONE);
-                mVersionAdapter.setObjects(Arrays.asList(detailedItem.versionNames));
-                mExtendedSpinner.setAdapter(mVersionAdapter);
+                mVersionList.removeAllViews();
+                mSelectedVersion = detailedItem.versionNames.length > 0 ? 0 : -1;
+
+                for (int i = 0; i < detailedItem.versionNames.length; i++) {
+                    final int versionIndex = i;
+                    LinearLayout row = new LinearLayout(mVersionList.getContext());
+                    row.setOrientation(LinearLayout.HORIZONTAL);
+                    row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                    row.setPadding(12, 10, 12, 10);
+
+                    ImageView loaderIcon = new ImageView(mVersionList.getContext());
+                    String loader = detailedItem.loaderNames != null && i < detailedItem.loaderNames.length ? detailedItem.loaderNames[i] : "Unknown";
+                    int loaderDrawable = getLoaderDrawable(loader);
+                    if (loaderDrawable != 0) {
+                        loaderIcon.setImageResource(loaderDrawable);
+                        int size = (int) (32 * mVersionList.getResources().getDisplayMetrics().density);
+                        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(size, size);
+                        iconParams.setMarginEnd(12);
+                        row.addView(loaderIcon, iconParams);
+                    }
+
+                    TextView versionText = new TextView(mVersionList.getContext());
+                    versionText.setText(detailedItem.versionNames[i] + "  •  " + loader);
+                    versionText.setTextSize(15);
+                    versionText.setTextColor(mVersionList.getResources().getColor(R.color.primary_text));
+                    row.addView(versionText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                    row.setOnClickListener(v -> {
+                        mSelectedVersion = versionIndex;
+                        updateVersionSelection();
+                        setInstallEnabled(true);
+                    });
+                    mVersionList.addView(row, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+                }
+                updateVersionSelection();
+                setInstallEnabled(mSelectedVersion >= 0);
             } else {
                 closeDetailedView();
                 setInstallEnabled(false);
+                mSelectedVersion = -1;
+                mVersionList.removeAllViews();
                 mExtendedErrorTextView.setVisibility(View.VISIBLE);
-                mExtendedSpinner.setAdapter(null);
-                mVersionAdapter.setObjects(null);
             }
         }
 
@@ -310,7 +341,10 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         private void setDetailedStateDefault() {
             setInstallEnabled(false);
-            mExtendedSpinner.setAdapter(mLoadingAdapter);
+            mVersionList.removeAllViews();
+            TextView loading = new TextView(mVersionList.getContext());
+            loading.setText("Loading versions…");
+            mVersionList.addView(loading);
             mExtendedErrorTextView.setVisibility(View.GONE);
             openDetailedView();
         }
@@ -342,6 +376,25 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private void updateInstallButtonState() {
             if(mExtendedButton != null)
                 mExtendedButton.setEnabled(mInstallEnabled && !mTasksRunning);
+        }
+
+        private void updateVersionSelection() {
+            if (mVersionList == null) return;
+            for (int i = 0; i < mVersionList.getChildCount(); i++) {
+                View child = mVersionList.getChildAt(i);
+                child.setAlpha(i == mSelectedVersion ? 1.0f : 0.72f);
+            }
+        }
+
+        private int getLoaderDrawable(String loader) {
+            if (loader == null) return 0;
+            switch (loader.toLowerCase()) {
+                case "fabric": return R.drawable.ic_fabric;
+                case "forge": return R.drawable.ic_forge;
+                case "neoforge": return R.drawable.ic_neoforge;
+                case "quilt": return R.drawable.ic_quilt;
+                default: return 0;
+            }
         }
     }
 
