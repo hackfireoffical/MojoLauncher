@@ -13,7 +13,9 @@ public class ModDetail extends ModItem {
     /* SHA 1 hashes, null if a hash is unavailable */
     public String[] versionHashes;
     public String[] loaderNames;
-    public ModDetail(ModItem item, String[] versionNames, String[] mcVersionNames, String[] versionUrls, String[] hashes, String[] loaderNames) {
+    /** Download size in bytes for each version, or -1 when unavailable. */
+    public long[] versionSizes;
+    public ModDetail(ModItem item, String[] versionNames, String[] mcVersionNames, String[] versionUrls, String[] hashes, String[] loaderNames, long[] versionSizes) {
         super(item.apiSource, item.isModpack, item.id, item.title, item.description, item.imageUrl);
         this.contentType = item.contentType;
         this.versionNames = versionNames;
@@ -21,6 +23,7 @@ public class ModDetail extends ModItem {
         this.versionUrls = versionUrls;
         this.versionHashes = hashes;
         this.loaderNames = loaderNames;
+        this.versionSizes = versionSizes;
 
         // Add the mc version to the version model
         for (int i=0; i<versionNames.length; i++){
