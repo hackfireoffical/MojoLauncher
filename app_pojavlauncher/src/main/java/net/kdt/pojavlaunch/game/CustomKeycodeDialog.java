@@ -48,7 +48,7 @@ public final class CustomKeycodeDialog {
         root.setPadding(dp(10), dp(10), dp(10), dp(8));
         root.setBackgroundColor(surface);
 
-        root.addView(keyboard(), new LinearLayout.LayoutParams(-1, 0, 1f));
+        root.addView(keyboard(), new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout actions = new LinearLayout(context);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -145,7 +145,7 @@ public final class CustomKeycodeDialog {
             p.setMargins(dp(2), dp(2), dp(2), dp(2));
             r.addView(e.button, p);
         }
-        parent.addView(r, new LinearLayout.LayoutParams(-1, 0, 1f));
+        parent.addView(r, new LinearLayout.LayoutParams(-1, dp(58)));
     }
 
     private Button action(int stringId) {
