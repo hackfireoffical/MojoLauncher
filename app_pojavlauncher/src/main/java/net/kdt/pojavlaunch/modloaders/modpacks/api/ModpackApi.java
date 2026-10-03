@@ -59,6 +59,7 @@ public interface ModpackApi {
             try {
                 installModpack(modDetail, selectedVersion);
             }catch (IOException e) {
+                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
                 Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
             }
         });
@@ -77,6 +78,7 @@ public interface ModpackApi {
                 if (instance == null) throw new IOException("No instance selected");
                 installMod(modDetail, selectedVersion, instance.getGameDirectory());
             } catch (IOException e) {
+                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
                 Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
             }
         });
