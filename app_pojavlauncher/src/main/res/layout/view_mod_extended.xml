@@ -2,9 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools">
-
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <TextView
         android:id="@+id/mod_extended_error_textview"
@@ -15,14 +13,30 @@
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <androidx.appcompat.widget.AppCompatSpinner
-        android:id="@+id/mod_extended_version_spinner"
+    <TextView
+        android:id="@+id/mod_extended_versions_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="@dimen/_30sdp"
-        android:layout_marginVertical="@dimen/padding_moderate"
-        app:layout_constraintTop_toBottomOf="@+id/mod_extended_error_textview"
-        />
+        android:text="Versions"
+        android:textStyle="bold"
+        android:paddingTop="@dimen/padding_moderate"
+        android:paddingBottom="@dimen/padding_small"
+        app:layout_constraintTop_toBottomOf="@id/mod_extended_error_textview" />
+
+    <ScrollView
+        android:id="@+id/mod_extended_version_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/mod_extended_versions_title">
+
+        <LinearLayout
+            android:id="@+id/mod_extended_version_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
 
     <com.kdt.mcgui.MineButton
         android:id="@+id/mod_extended_select_version_button"
@@ -33,8 +47,7 @@
         android:layout_marginHorizontal="@dimen/padding_large"
         android:layout_marginTop="@dimen/padding_moderate"
         android:layout_marginBottom="@dimen/padding_large"
-
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/mod_extended_version_spinner" />
+        app:layout_constraintTop_toBottomOf="@id/mod_extended_version_scroll" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
