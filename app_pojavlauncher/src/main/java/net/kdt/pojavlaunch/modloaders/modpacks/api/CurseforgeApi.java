@@ -164,7 +164,7 @@ public class CurseforgeApi implements ModpackApi{
         downloads.add(new TaskMetadata(
                 new File(contentDirectory, fileName),
                 new URL(urlString),
-                0,
+                -1,
                 modDetail.versionHashes[selectedVersion],
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
         try {
