@@ -18,6 +18,7 @@ import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.ForgelikeLoaderInst
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.LoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.Lwjgl3ifyLoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.Constants;
+import net.kdt.pojavlaunch.modloaders.modpacks.InstalledModManager;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModItem;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModrinthIndex;
@@ -175,6 +176,11 @@ public class ModrinthApi implements ModpackApi{
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
         try {
             new SingleModDownloader().start(downloads);
+            if (Constants.CONTENT_MOD.equals(modDetail.contentType)) {
+                InstalledModManager.record(instanceDirectory,
+                        modDetail, selectedVersion,
+                        new File(contentDirectory, fileName));
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Download interrupted", e);
