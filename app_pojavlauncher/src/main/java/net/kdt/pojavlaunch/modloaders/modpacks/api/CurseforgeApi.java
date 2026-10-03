@@ -162,7 +162,7 @@ public class CurseforgeApi implements ModpackApi{
                     if (dependencyId == null || dependencyId.isJsonNull()) continue;
                     String dependencyName = dependencyId.getAsString();
                     try {
-                        JsonObject dependencyMod = mApiHandler.get("mods/" + dependencyId.getAsString(), null, JsonObject.class);
+                        JsonObject dependencyMod = mApiHandler.get("mods/" + dependencyId.getAsString(), JsonObject.class);
                         if (dependencyMod != null && dependencyMod.has("data")) {
                             JsonObject data = dependencyMod.getAsJsonObject("data");
                             if (data.has("name")) dependencyName = data.get("name").getAsString();
