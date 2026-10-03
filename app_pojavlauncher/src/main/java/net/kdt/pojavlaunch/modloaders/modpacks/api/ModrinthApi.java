@@ -106,6 +106,7 @@ public class ModrinthApi implements ModpackApi{
         String[] mcNames = new String[response.size()];
         String[] urls = new String[response.size()];
         String[] hashes = new String[response.size()];
+        String[] loaders = new String[response.size()];
 
         for (int i=0; i<response.size(); ++i) {
             JsonObject version = response.get(i).getAsJsonObject();
@@ -121,9 +122,11 @@ public class ModrinthApi implements ModpackApi{
             }
 
             hashes[i] = hashesMap.get("sha1").getAsString();
+            JsonArray loaderArray = version.getAsJsonArray("loaders");
+            loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes);
+        return new ModDetail(item, names, mcNames, urls, hashes, loaders);
     }
 
     @Override
