@@ -308,9 +308,9 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
             // Apply the new settings
             mApplyButton.setOnClickListener(v -> {
                 mSearchFilters.mcVersion = mSelectedVersion.getText().toString();
-                int contentSelection = mContentTypeSpinner.getSelectedItemPosition();
-                mSearchFilters.isModpack = contentSelection == 1;
-                switch (contentSelection) {
+                int selectedContentType = mContentTypeSpinner.getSelectedItemPosition();
+                mSearchFilters.isModpack = selectedContentType == 1;
+                switch (selectedContentType) {
                     case 1: mSearchFilters.contentType = Constants.CONTENT_MODPACK; break;
                     case 2: mSearchFilters.contentType = Constants.CONTENT_SHADER; break;
                     case 3: mSearchFilters.contentType = Constants.CONTENT_RESOURCEPACK; break;
