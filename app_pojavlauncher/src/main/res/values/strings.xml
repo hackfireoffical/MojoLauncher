@@ -521,6 +521,9 @@
     <string name="preference_button_transparency">Buttons transparency</string>
     <string name="preference_button_transparency_summary">Changes on-screen buttons transparency</string>
     <string name="main_please_restart">Please restart the game from the launcher homescreen</string>
+    <string name="search_mod_content_type">Content type</string>
+    <string name="search_mod_content_mods">Mods</string>
+    <string name="search_mod_content_modpacks">Modpacks</string>
     <string name="search_mod_source">Source</string>
     <string name="search_mod_source_all">All sources</string>
     <string name="search_mod_source_modrinth">Modrinth</string>
