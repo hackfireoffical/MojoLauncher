@@ -18,7 +18,6 @@ import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.ForgelikeLoaderInst
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.LoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.modloader.Lwjgl3ifyLoaderInstaller;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.Constants;
-import net.kdt.pojavlaunch.modloaders.modpacks.InstalledModManager;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModItem;
 import net.kdt.pojavlaunch.modloaders.modpacks.models.ModrinthIndex;
@@ -30,13 +29,15 @@ import net.kdt.pojavlaunch.utils.ZipUtils;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipFile;
 
+/**
+ * Modrinth search and modpack support. Mods, shaders and resource packs are installed by the
+ * content system (net.kdt.pojavlaunch.content), not here.
+ */
 public class ModrinthApi implements ModpackApi{
     private final ApiHandler mApiHandler;
     public ModrinthApi(){
@@ -98,112 +99,80 @@ public class ModrinthApi implements ModpackApi{
         return modrinthSearchResult;
     }
 
+    /** Modpack versions. (Everything else is handled by ContentDetails.) */
     @Override
     public ModDetail getModDetails(ModItem item) {
-
         JsonArray response = mApiHandler.get(String.format("project/%s/version", item.id), JsonArray.class);
         if(response == null) return null;
-        System.out.println(response);
-        String[] names = new String[response.size()];
-        String[] mcNames = new String[response.size()];
-        String[] urls = new String[response.size()];
-        String[] hashes = new String[response.size()];
-        String[] loaders = new String[response.size()];
-        long[] sizes = new long[response.size()];
-        String[][] dependencies = new String[response.size()][];
-        String[][] dependencyIds = new String[response.size()][];
+
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> mcNames = new ArrayList<>();
+        ArrayList<String> urls = new ArrayList<>();
+        ArrayList<String> hashes = new ArrayList<>();
+        ArrayList<String> loaders = new ArrayList<>();
+        ArrayList<Long> sizes = new ArrayList<>();
 
         for (int i=0; i<response.size(); ++i) {
+            if (!response.get(i).isJsonObject()) continue;
             JsonObject version = response.get(i).getAsJsonObject();
-            names[i] = version.get("name").getAsString();
-            JsonArray gameVersions = version.getAsJsonArray("game_versions");
+            JsonObject file = pickPrimaryFile(version);
+            if (file == null || !file.has("url") || file.get("url").isJsonNull()) continue;
+
+            JsonElement name = version.get("name");
+            names.add(name != null && !name.isJsonNull() ? name.getAsString() : "Unnamed version");
+
             StringBuilder mcVersionBuilder = new StringBuilder();
-            for(JsonElement gameVersion : gameVersions) {
-                if(mcVersionBuilder.length() > 0) mcVersionBuilder.append(", ");
-                mcVersionBuilder.append(gameVersion.getAsString());
-            }
-            mcNames[i] = mcVersionBuilder.toString();
-            urls[i] = version.get("files").getAsJsonArray().get(0).getAsJsonObject().get("url").getAsString();
-            JsonArray loaderArray = version.getAsJsonArray("loaders");
-            loaders[i] = loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown";
-            JsonArray dependencyArray = version.getAsJsonArray("dependencies");
-            ArrayList<String> requiredDependencies = new ArrayList<>();
-            ArrayList<String> requiredDependencyIds = new ArrayList<>();
-            if (dependencyArray != null) {
-                for (JsonElement dependencyElement : dependencyArray) {
-                    JsonObject dependency = dependencyElement.getAsJsonObject();
-                    String type = dependency.has("dependency_type") ? dependency.get("dependency_type").getAsString() : "";
-                    if (!"required".equalsIgnoreCase(type)) continue;
-                    String projectId = dependency.has("project_id") && !dependency.get("project_id").isJsonNull() ? dependency.get("project_id").getAsString() : null;
-                    if (projectId == null || projectId.isEmpty()) continue;
-                    String dependencyName = projectId;
-                    try {
-                        JsonObject project = mApiHandler.get("project/" + projectId, JsonObject.class);
-                        if (project != null && project.has("title")) dependencyName = project.get("title").getAsString();
-                    } catch (Exception ignored) {}
-                    requiredDependencies.add(dependencyName);
-                    requiredDependencyIds.add(projectId);
+            JsonArray gameVersions = version.has("game_versions") && version.get("game_versions").isJsonArray()
+                    ? version.getAsJsonArray("game_versions") : null;
+            if (gameVersions != null) {
+                for(JsonElement gameVersion : gameVersions) {
+                    if(mcVersionBuilder.length() > 0) mcVersionBuilder.append(", ");
+                    mcVersionBuilder.append(gameVersion.getAsString());
                 }
             }
-            dependencies[i] = requiredDependencies.toArray(new String[0]);
-            dependencyIds[i] = requiredDependencyIds.toArray(new String[0]);
+            mcNames.add(mcVersionBuilder.toString());
+            urls.add(file.get("url").getAsString());
 
-            JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
-            sizes[i] = file.has("size") ? file.get("size").getAsLong() : -1;
+            JsonArray loaderArray = version.has("loaders") && version.get("loaders").isJsonArray()
+                    ? version.getAsJsonArray("loaders") : null;
+            loaders.add(loaderArray != null && loaderArray.size() > 0 ? loaderArray.get(0).getAsString() : "Unknown");
+
+            sizes.add(file.has("size") && !file.get("size").isJsonNull() ? file.get("size").getAsLong() : -1L);
 
             // Assume there may not be hashes, in case the API changes
-            JsonObject hashesMap = version.getAsJsonArray("files").get(0).getAsJsonObject()
-                    .get("hashes").getAsJsonObject();
-            if(hashesMap == null || hashesMap.get("sha1") == null){
-                hashes[i] = null;
-                continue;
+            String sha1 = null;
+            if (file.has("hashes") && file.get("hashes").isJsonObject()) {
+                JsonElement sha1Element = file.getAsJsonObject("hashes").get("sha1");
+                if (sha1Element != null && !sha1Element.isJsonNull()) sha1 = sha1Element.getAsString();
             }
-
-            hashes[i] = hashesMap.get("sha1").getAsString();
+            hashes.add(sha1);
         }
 
-        return new ModDetail(item, names, mcNames, urls, hashes, loaders, sizes, dependencies, dependencyIds);
+        int n = names.size();
+        long[] sizeArray = new long[n];
+        for (int i = 0; i < n; i++) sizeArray[i] = sizes.get(i);
+        return new ModDetail(item,
+                names.toArray(new String[0]),
+                mcNames.toArray(new String[0]),
+                urls.toArray(new String[0]),
+                hashes.toArray(new String[0]),
+                loaders.toArray(new String[0]),
+                sizeArray,
+                new String[n][0],
+                new String[n][0]);
     }
 
-    @Override
-    public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
-        String urlString = modDetail.versionUrls[selectedVersion];
-        String fileName = getContentFileName(urlString, modDetail.title, modDetail.contentType);
-        File contentDirectory = new File(instanceDirectory, getTargetDirectory(modDetail.contentType));
-        FileUtils.ensureDirectory(contentDirectory);
-        ArrayList<TaskMetadata> downloads = new ArrayList<>(1);
-        downloads.add(new TaskMetadata(
-                new File(contentDirectory, fileName),
-                new URL(urlString),
-                modDetail.versionSizes[selectedVersion],
-                modDetail.versionHashes[selectedVersion],
-                DownloadMirror.DOWNLOAD_CLASS_NONE));
-        try {
-            new SingleModDownloader().start(downloads);
-            if (Constants.CONTENT_MOD.equals(modDetail.contentType)) {
-                InstalledModManager.record(instanceDirectory,
-                        modDetail, selectedVersion,
-                        new File(contentDirectory, fileName));
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Download interrupted", e);
+    private static JsonObject pickPrimaryFile(JsonObject version) {
+        if (!version.has("files") || !version.get("files").isJsonArray()) return null;
+        JsonObject first = null;
+        for (JsonElement element : version.getAsJsonArray("files")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject file = element.getAsJsonObject();
+            if (first == null) first = file;
+            JsonElement primary = file.get("primary");
+            if (primary != null && !primary.isJsonNull() && primary.getAsBoolean()) return file;
         }
-    }
-
-    private String getContentFileName(String urlString, String title, String contentType) {
-        try {
-            String path = new URL(urlString).getPath();
-            String name = new File(URLDecoder.decode(path, StandardCharsets.UTF_8.name())).getName();
-            if (name != null && name.toLowerCase().endsWith(".jar")) return name;
-        } catch (Exception ignored) {}
-        return title.replaceAll("[^A-Za-z0-9._-]", "_") + (Constants.CONTENT_MOD.equals(contentType) ? ".jar" : ".zip");
-    }
-
-    private String getTargetDirectory(String contentType) {
-        if (Constants.CONTENT_SHADER.equals(contentType)) return "shaderpacks";
-        if (Constants.CONTENT_RESOURCEPACK.equals(contentType)) return "resourcepacks";
-        return "mods";
+        return first;
     }
 
     @Override
@@ -259,13 +228,6 @@ public class ModrinthApi implements ModpackApi{
 
     class ModrinthSearchResult extends SearchResult {
         int previousOffset;
-    }
-
-    static class SingleModDownloader extends Downloader {
-        SingleModDownloader() { super(ProgressLayout.INSTALL_MODPACK); }
-        void start(ArrayList<TaskMetadata> tasks) throws IOException, InterruptedException {
-            runDownloads(tasks);
-        }
     }
 
     static class ModrinthDownloader extends Downloader {
