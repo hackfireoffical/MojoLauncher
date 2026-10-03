@@ -159,8 +159,11 @@ public class Downloader {
 
     private static HttpURLConnection openConnection(URL url) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setReadTimeout(10000);
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(30000);
+        connection.setInstanceFollowRedirects(true);
         connection.setRequestProperty("User-Agent", DownloadUtils.USER_AGENT);
+        connection.setRequestProperty("Accept", "*/*");
         connection.setDoInput(true);
         connection.setDoOutput(false);
         return connection;
@@ -185,8 +188,15 @@ public class Downloader {
 
     protected void downloadFile(File file, URL url, BytesCopiedListener listener) throws IOException {
         HttpURLConnection connection = openConnection(url);
-        try(FileOutputStream outputStream = new FileOutputStream(file)) {
-            downloadToStream(connection, outputStream, listener);
+        try {
+            connection.connect();
+            int responseCode = connection.getResponseCode();
+            if(responseCode < 200 || responseCode >= 300) {
+                throw new IOException("Download server returned HTTP " + responseCode + ": " + connection.getResponseMessage());
+            }
+            try(FileOutputStream outputStream = new FileOutputStream(file)) {
+                downloadToStream(connection, outputStream, listener);
+            }
         }finally {
             connection.disconnect();
         }
