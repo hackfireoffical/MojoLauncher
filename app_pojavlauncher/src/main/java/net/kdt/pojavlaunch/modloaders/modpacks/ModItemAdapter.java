@@ -328,9 +328,12 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     if (requested >= 0) initialMinecraft = requested;
                 }
 
+                final int finalInitialMinecraft = initialMinecraft;
+                final String finalSelectedLoader = selectedLoader;
+
                 mMinecraftSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                     @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                        populateModVersions(detailedItem, minecraftVersions.get(position), position == initialMinecraft ? selectedLoader : null);
+                        populateModVersions(detailedItem, minecraftVersions.get(position), position == finalInitialMinecraft ? finalSelectedLoader : null);
                     }
                     @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
                 });
