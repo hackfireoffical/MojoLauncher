@@ -473,7 +473,21 @@ public class EditControlSideDialog extends SideDialogView {
 
         for (int i = 0; i < mKeycodeSpinners.length; ++i) {
             int finalI = i;
-            mKeycodeTextviews[i].setOnClickListener(v -> mKeycodeSpinners[finalI].performClick());
+            mKeycodeTextviews[i].setOnClickListener(v -> {
+                Context context = mDialogContent.getContext();
+                net.kdt.pojavlaunch.game.CustomKeycodeDialog.show(context, keycode -> {
+                    if (mCurrentlyEditedButton == null) return;
+                    mCurrentlyEditedButton.getProperties().keycodes[finalI] = keycode;
+                    int index = KeycodeUtils.getIndexByValue(keycode);
+                    if (index >= 0) {
+                        internalChanges = true;
+                        mKeycodeSpinners[finalI].setSelection(index + mSpecialArray.size());
+                        internalChanges = false;
+                    }
+                    String[] names = KeycodeUtils.generateKeyName();
+                    mKeycodeTextviews[finalI].setText(index >= 0 && index < names.length ? names[index] : String.valueOf(keycode));
+                });
+            });
 
             mKeycodeSpinners[i].setOnItemSelectedListener((SimpleItemSelectedListener) (parent, view, position, id) -> {
                 // Side note, spinner listeners are fired later than all the other ones.
