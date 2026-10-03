@@ -56,6 +56,7 @@ public class LauncherActivity extends BaseActivity {
 
     private FragmentContainerView mFragmentView;
     private ImageButton mSettingsButton;
+    private ImageButton mContentDownloaderButton;
     private ProgressLayout mProgressLayout;
     private ProgressServiceKeeper mProgressServiceKeeper;
     private NotificationManager mNotificationManager;
@@ -67,6 +68,9 @@ public class LauncherActivity extends BaseActivity {
         public void onFragmentResumed(@NonNull FragmentManager fm, @NonNull Fragment f) {
             mSettingsButton.setImageDrawable(ContextCompat.getDrawable(getBaseContext(), f instanceof MainMenuFragment
                     ? R.drawable.ic_px_sliders : R.drawable.ic_px_home));
+            if (mContentDownloaderButton != null) {
+                mContentDownloaderButton.setVisibility(f instanceof MainMenuFragment ? View.VISIBLE : View.GONE);
+            }
         }
     };
 
@@ -193,6 +197,9 @@ public class LauncherActivity extends BaseActivity {
         ProgressKeeper.addTaskCountListener((mProgressServiceKeeper = new ProgressServiceKeeper(this)));
 
         mSettingsButton.setOnClickListener(mSettingButtonListener);
+        mContentDownloaderButton.setOnClickListener(v ->
+                Tools.swapFragment(this, net.kdt.pojavlaunch.prefs.screens.ContentDownloaderFragment.class,
+                        "CONTENT_DOWNLOADER", null));
         ProgressKeeper.addTaskCountListener(mProgressLayout);
         ExtraCore.addExtraListener(ExtraConstants.BACK_PREFERENCE, mBackPreferenceListener);
         ExtraCore.addExtraListener(ExtraConstants.SELECT_AUTH_METHOD, mSelectAuthMethod);
@@ -332,6 +339,7 @@ public class LauncherActivity extends BaseActivity {
     private void bindViews(){
         mFragmentView = findViewById(R.id.container_fragment);
         mSettingsButton = findViewById(R.id.setting_button);
+        mContentDownloaderButton = findViewById(R.id.content_downloader_button);
         mProgressLayout = findViewById(R.id.progress_layout);
     }
 }
