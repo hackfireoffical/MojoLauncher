@@ -13,5 +13,6 @@ public class SearchFilters {
     public int source = Constants.SOURCE_ALL;
     /** Sort mode shared by Modrinth and CurseForge adapters. */
     public String sort = "relevance";
+    public String contentType = Constants.CONTENT_MOD;
 
 }
