@@ -48,6 +48,8 @@ public class CurseforgeApi implements ModpackApi{
     private static final int CURSEFORGE_MODPACK_CLASS_ID = 4471;
     // https://api.curseforge.com/v1/categories?gameId=432 and search for "Mods" (case-sensitive)
     private static final int CURSEFORGE_MOD_CLASS_ID = 6;
+    private static final int CURSEFORGE_RESOURCE_PACK_CLASS_ID = 12;
+    private static final int CURSEFORGE_SHADER_CLASS_ID = 6552;
     private static final int CURSEFORGE_SORT_RELEVANCY = 1;
     private static final int CURSEFORGE_SORT_POPULARITY = 2;
     private static final int CURSEFORGE_SORT_LAST_UPDATED = 3;
@@ -70,7 +72,7 @@ public class CurseforgeApi implements ModpackApi{
 
         HashMap<String, Object> params = new HashMap<>();
         params.put("gameId", CURSEFORGE_MC_GAME_ID);
-        params.put("classId", searchFilters.isModpack ? CURSEFORGE_MODPACK_CLASS_ID : CURSEFORGE_MOD_CLASS_ID);
+        params.put("classId", getClassId(searchFilters));
         params.put("searchFilter", searchFilters.name);
         params.put("sortField", getSortField(searchFilters.sort));
         params.put("sortOrder", "desc");
@@ -100,6 +102,7 @@ public class CurseforgeApi implements ModpackApi{
                     dataElement.get("name").getAsString(),
                     dataElement.get("summary").getAsString(),
                     dataElement.getAsJsonObject("logo").get("thumbnailUrl").getAsString());
+            modItem.contentType = searchFilters.isModpack ? Constants.CONTENT_MODPACK : searchFilters.contentType;
             modItemList.add(modItem);
         }
         if(curseforgeSearchResult == null) curseforgeSearchResult = new CurseforgeSearchResult();
@@ -152,12 +155,12 @@ public class CurseforgeApi implements ModpackApi{
         if (urlString == null || urlString.isEmpty()) {
             throw new IOException("This CurseForge file has no downloadable URL");
         }
-        String fileName = getJarFileName(urlString, modDetail.title);
-        File modsDirectory = new File(instanceDirectory, "mods");
-        FileUtils.ensureDirectory(modsDirectory);
+        String fileName = getContentFileName(urlString, modDetail.title, modDetail.contentType);
+        File contentDirectory = new File(instanceDirectory, getTargetDirectory(modDetail.contentType));
+        FileUtils.ensureDirectory(contentDirectory);
         ArrayList<TaskMetadata> downloads = new ArrayList<>(1);
         downloads.add(new TaskMetadata(
-                new File(modsDirectory, fileName),
+                new File(contentDirectory, fileName),
                 new URL(urlString),
                 0,
                 modDetail.versionHashes[selectedVersion],
@@ -165,13 +168,26 @@ public class CurseforgeApi implements ModpackApi{
         new SingleModDownloader().start(downloads);
     }
 
-    private String getJarFileName(String urlString, String title) {
+    private String getContentFileName(String urlString, String title, String contentType) {
         try {
             String path = new URL(urlString).getPath();
             String name = new File(URLDecoder.decode(path, "UTF-8")).getName();
             if (name != null && name.toLowerCase().endsWith(".jar")) return name;
         } catch (Exception ignored) {}
-        return title.replaceAll("[^A-Za-z0-9._-]", "_") + ".jar";
+        return title.replaceAll("[^A-Za-z0-9._-]", "_") + (Constants.CONTENT_MOD.equals(contentType) ? ".jar" : ".zip");
+    }
+
+    private String getTargetDirectory(String contentType) {
+        if (Constants.CONTENT_SHADER.equals(contentType)) return "shaderpacks";
+        if (Constants.CONTENT_RESOURCEPACK.equals(contentType)) return "resourcepacks";
+        return "mods";
+    }
+
+    private int getClassId(SearchFilters filters) {
+        if (filters.isModpack) return CURSEFORGE_MODPACK_CLASS_ID;
+        if (Constants.CONTENT_SHADER.equals(filters.contentType)) return CURSEFORGE_SHADER_CLASS_ID;
+        if (Constants.CONTENT_RESOURCEPACK.equals(filters.contentType)) return CURSEFORGE_RESOURCE_PACK_CLASS_ID;
+        return CURSEFORGE_MOD_CLASS_ID;
     }
 
     @Override
