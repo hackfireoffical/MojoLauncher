@@ -23,6 +23,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.kdt.SimpleArrayAdapter;
 
 import net.kdt.pojavlaunch.PojavApplication;
+import net.kdt.pojavlaunch.instances.Instance;
+import net.kdt.pojavlaunch.instances.Instances;
 import git.artdeell.mojo.R;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.modloaders.modpacks.api.ModpackApi;
@@ -300,20 +302,41 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 mMinecraftSpinner.setAdapter(minecraftAdapter);
 
                 int initialMinecraft = 0;
-                if (mSearchFilters != null && mSearchFilters.mcVersion != null) {
-                    int requested = minecraftVersions.indexOf(mSearchFilters.mcVersion);
+                String selectedMinecraftVersion = null;
+                String selectedLoader = null;
+                try {
+                    Instance selectedInstance = Instances.loadSelectedInstance();
+                    if (selectedInstance != null && selectedInstance.versionId != null) {
+                        String instanceVersionId = selectedInstance.versionId;
+                        for (String version : minecraftVersions) {
+                            if (instanceVersionId.equals(version) || instanceVersionId.contains(version)) {
+                                selectedMinecraftVersion = version;
+                                break;
+                            }
+                        }
+                        selectedLoader = getLoaderFromInstanceVersion(instanceVersionId);
+                    }
+                } catch (Exception ignored) {
+                }
+
+                if (selectedMinecraftVersion == null && mSearchFilters != null && mSearchFilters.mcVersion != null) {
+                    selectedMinecraftVersion = mSearchFilters.mcVersion;
+                }
+
+                if (selectedMinecraftVersion != null) {
+                    int requested = minecraftVersions.indexOf(selectedMinecraftVersion);
                     if (requested >= 0) initialMinecraft = requested;
                 }
 
                 mMinecraftSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                     @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                        populateModVersions(detailedItem, minecraftVersions.get(position));
+                        populateModVersions(detailedItem, minecraftVersions.get(position), position == initialMinecraft ? selectedLoader : null);
                     }
                     @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
                 });
                 if (!minecraftVersions.isEmpty()) {
                     mMinecraftSpinner.setSelection(initialMinecraft);
-                    populateModVersions(detailedItem, minecraftVersions.get(initialMinecraft));
+                    populateModVersions(detailedItem, minecraftVersions.get(initialMinecraft), selectedLoader);
                 } else {
                     mSelectedVersion = -1;
                     setInstallEnabled(false);
@@ -327,7 +350,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
 
-        private void populateModVersions(ModDetail detailedItem, String minecraftVersion) {
+        private void populateModVersions(ModDetail detailedItem, String minecraftVersion, String preferredLoader) {
             mVersionList.removeAllViews();
             mSelectedVersion = -1;
 
@@ -358,8 +381,10 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 versionText.setTextColor(mVersionList.getResources().getColor(R.color.primary_text));
                 row.addView(versionText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
+                row.setTag(versionIndex);
                 row.setOnClickListener(v -> {
-                    mSelectedVersion = versionIndex;
+                    Object tag = v.getTag();
+                    mSelectedVersion = tag instanceof Integer ? (Integer) tag : versionIndex;
                     updateVersionSelection();
                     setInstallEnabled(true);
                 });
@@ -369,7 +394,8 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                 // APIs normally return newest versions first, so the first compatible
                 // version becomes the automatic selection.
-                if (mSelectedVersion == -1) {
+                if (mSelectedVersion == -1
+                        || (preferredLoader != null && preferredLoader.equalsIgnoreCase(loader))) {
                     mSelectedVersion = versionIndex;
                 }
             }
@@ -438,8 +464,20 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             if (mVersionList == null) return;
             for (int i = 0; i < mVersionList.getChildCount(); i++) {
                 View child = mVersionList.getChildAt(i);
-                child.setAlpha(i == mSelectedVersion ? 1.0f : 0.72f);
+                Object tag = child.getTag();
+                boolean selected = tag instanceof Integer && ((Integer) tag) == mSelectedVersion;
+                child.setAlpha(selected ? 1.0f : 0.72f);
             }
+        }
+
+        private String getLoaderFromInstanceVersion(String versionId) {
+            if (versionId == null) return null;
+            String lower = versionId.toLowerCase();
+            if (lower.contains("neoforge")) return "NeoForge";
+            if (lower.contains("fabric")) return "Fabric";
+            if (lower.contains("forge")) return "Forge";
+            if (lower.contains("quilt")) return "Quilt";
+            return null;
         }
 
         private int getLoaderDrawable(String loader) {
