@@ -59,7 +59,8 @@ public class ModrinthApi implements ModpackApi{
         HashMap<String, Object> params = new HashMap<>();
         StringBuilder facetString = new StringBuilder();
         facetString.append("[");
-        facetString.append(String.format("[\"project_type:%s\"]", searchFilters.isModpack ? "modpack" : "mod"));
+        String projectType = searchFilters.isModpack ? Constants.CONTENT_MODPACK : searchFilters.contentType;
+        facetString.append(String.format("[\"project_type:%s\"]", projectType));
         if(searchFilters.mcVersion != null && !searchFilters.mcVersion.isEmpty())
             facetString.append(String.format(",[\"versions:%s\"]", searchFilters.mcVersion));
         facetString.append("]");
@@ -86,6 +87,7 @@ public class ModrinthApi implements ModpackApi{
                     hit.get("description").getAsString(),
                     hit.get("icon_url").getAsString()
             );
+            items[i].contentType = hit.get("project_type").getAsString();
         }
         if(modrinthSearchResult == null) modrinthSearchResult = new ModrinthSearchResult();
         modrinthSearchResult.previousOffset += responseHits.size();
@@ -127,12 +129,12 @@ public class ModrinthApi implements ModpackApi{
     @Override
     public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
         String urlString = modDetail.versionUrls[selectedVersion];
-        String fileName = getJarFileName(urlString, modDetail.title);
-        File modsDirectory = new File(instanceDirectory, "mods");
-        FileUtils.ensureDirectory(modsDirectory);
+        String fileName = getContentFileName(urlString, modDetail.title, modDetail.contentType);
+        File contentDirectory = new File(instanceDirectory, getTargetDirectory(modDetail.contentType));
+        FileUtils.ensureDirectory(contentDirectory);
         ArrayList<TaskMetadata> downloads = new ArrayList<>(1);
         downloads.add(new TaskMetadata(
-                new File(modsDirectory, fileName),
+                new File(contentDirectory, fileName),
                 new URL(urlString),
                 0,
                 modDetail.versionHashes[selectedVersion],
@@ -140,13 +142,19 @@ public class ModrinthApi implements ModpackApi{
         new SingleModDownloader().start(downloads);
     }
 
-    private String getJarFileName(String urlString, String title) {
+    private String getContentFileName(String urlString, String title, String contentType) {
         try {
             String path = new URL(urlString).getPath();
             String name = new File(URLDecoder.decode(path, StandardCharsets.UTF_8.name())).getName();
             if (name != null && name.toLowerCase().endsWith(".jar")) return name;
         } catch (Exception ignored) {}
-        return title.replaceAll("[^A-Za-z0-9._-]", "_") + ".jar";
+        return title.replaceAll("[^A-Za-z0-9._-]", "_") + (Constants.CONTENT_MOD.equals(contentType) ? ".jar" : ".zip");
+    }
+
+    private String getTargetDirectory(String contentType) {
+        if (Constants.CONTENT_SHADER.equals(contentType)) return "shaderpacks";
+        if (Constants.CONTENT_RESOURCEPACK.equals(contentType)) return "resourcepacks";
+        return "mods";
     }
 
     @Override
