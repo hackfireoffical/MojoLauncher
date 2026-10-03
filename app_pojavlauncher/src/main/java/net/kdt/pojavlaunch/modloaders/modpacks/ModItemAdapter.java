@@ -353,13 +353,19 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
 
+        private boolean containsMinecraftVersion(String supportedVersions, String requestedVersion) {
+            if (supportedVersions == null || requestedVersion == null) return false;
+            for (String version : supportedVersions.split(",\\s*")) if (requestedVersion.equals(version.trim())) return true;
+            return false;
+        }
+
         private void populateModVersions(ModDetail detailedItem, String minecraftVersion, String preferredLoader) {
             mVersionList.removeAllViews();
             mSelectedVersion = -1;
             boolean preferredLoaderFound = false;
 
             for (int i = 0; i < detailedItem.versionNames.length; i++) {
-                if (!minecraftVersion.equals(detailedItem.mcVersionNames[i])) continue;
+                if (!containsMinecraftVersion(detailedItem.mcVersionNames[i], minecraftVersion)) continue;
 
                 final int versionIndex = i;
                 LinearLayout row = new LinearLayout(mVersionList.getContext());
