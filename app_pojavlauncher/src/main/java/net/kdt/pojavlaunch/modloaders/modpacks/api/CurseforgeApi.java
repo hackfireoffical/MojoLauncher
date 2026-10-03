@@ -131,6 +131,7 @@ public class CurseforgeApi implements ModpackApi{
         String[] loaders = new String[length];
         long[] sizes = new long[length];
         String[][] dependencies = new String[length][];
+        String[][] dependencyIds = new String[length][];
         for(int i = 0; i < allModDetails.size(); i++) {
             JsonObject modDetail = allModDetails.get(i);
             versionNames[i] = modDetail.get("displayName").getAsString();
@@ -153,6 +154,7 @@ public class CurseforgeApi implements ModpackApi{
             if ("Unknown".equals(loaders[i]) && (Constants.CONTENT_SHADER.equals(item.contentType) || Constants.CONTENT_RESOURCEPACK.equals(item.contentType))) loaders[i] = "Minecraft";
             JsonArray dependencyArray = modDetail.getAsJsonArray("dependencies");
             ArrayList<String> requiredDependencies = new ArrayList<>();
+            ArrayList<String> requiredDependencyIds = new ArrayList<>();
             if (dependencyArray != null) {
                 for (JsonElement dependencyElement : dependencyArray) {
                     JsonObject dependency = dependencyElement.getAsJsonObject();
@@ -169,13 +171,15 @@ public class CurseforgeApi implements ModpackApi{
                         }
                     } catch (Exception ignored) {}
                     requiredDependencies.add(dependencyName);
+                    requiredDependencyIds.add(dependencyId.getAsString());
                 }
             }
             dependencies[i] = requiredDependencies.toArray(new String[0]);
+            dependencyIds[i] = requiredDependencyIds.toArray(new String[0]);
             JsonElement fileLength = modDetail.get("fileLength");
             sizes[i] = fileLength != null && !fileLength.isJsonNull() ? fileLength.getAsLong() : -1;
         }
-        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes, dependencies);
+        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes, dependencies, dependencyIds);
     }
 
     @Override
