@@ -167,7 +167,12 @@ public class CurseforgeApi implements ModpackApi{
                 0,
                 modDetail.versionHashes[selectedVersion],
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
-        new SingleModDownloader().start(downloads);
+        try {
+            new SingleModDownloader().start(downloads);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Download interrupted", e);
+        }
     }
 
     private String getCurseforgeLoaderName(JsonObject file) {
