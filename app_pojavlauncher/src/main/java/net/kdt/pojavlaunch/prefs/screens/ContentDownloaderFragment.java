@@ -27,6 +27,13 @@ public class ContentDownloaderFragment extends Fragment {
         layout.setBackgroundColor(getResources().getColor(git.artdeell.mojo.R.color.background_app));
 
         addButton(layout, "Mods", Constants.CONTENT_MOD);
+        Button manager = new Button(requireContext());
+        manager.setText("Installed Mods");
+        manager.setOnClickListener(v -> Tools.swapFragment(requireActivity(), InstalledModsFragment.class,
+                "InstalledModsFragment", null));
+        layout.addView(manager, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         addButton(layout, "Shader Packs", Constants.CONTENT_SHADER);
         addButton(layout, "Texture Packs", Constants.CONTENT_RESOURCEPACK);
         return layout;
