@@ -76,6 +76,7 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
     private final SearchFilters mSearchFilters;
 
     private Button mImportButton;
+    private Spinner mContentTypeSpinner;
     private TaskCountListener mTaskCountListener;
 
     ActivityResultLauncher<String> mImportLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(),
@@ -116,7 +117,7 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
     public SearchModFragment(){
         super(R.layout.fragment_mod_search);
         mSearchFilters = new SearchFilters();
-        mSearchFilters.isModpack = true;
+        mSearchFilters.isModpack = false;
     }
 
     @Override
@@ -218,15 +219,27 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
         dialog.setOnShowListener(dialogInterface -> {
             TextView mSelectedVersion = dialog.findViewById(R.id.search_mod_selected_mc_version_textview);
             Button mSelectVersionButton = dialog.findViewById(R.id.search_mod_mc_version_button);
+            Spinner mContentTypeSpinner = dialog.findViewById(R.id.search_mod_content_type_spinner);
             Spinner mSourceSpinner = dialog.findViewById(R.id.search_mod_source_spinner);
             Spinner mSortSpinner = dialog.findViewById(R.id.search_mod_sort_spinner);
             Button mApplyButton = dialog.findViewById(R.id.search_mod_apply_filters);
 
             assert mSelectVersionButton != null;
             assert mSelectedVersion != null;
+            assert mContentTypeSpinner != null;
             assert mSourceSpinner != null;
             assert mSortSpinner != null;
             assert mApplyButton != null;
+
+            String[] contentTypeLabels = {
+                    getString(R.string.search_mod_content_mods),
+                    getString(R.string.search_mod_content_modpacks)
+            };
+            ArrayAdapter<String> contentTypeAdapter = new ArrayAdapter<>(
+                    requireContext(), android.R.layout.simple_spinner_item, contentTypeLabels);
+            contentTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            mContentTypeSpinner.setAdapter(contentTypeAdapter);
+            mContentTypeSpinner.setSelection(mSearchFilters.isModpack ? 1 : 0);
 
             String[] sourceLabels = {
                     getString(R.string.search_mod_source_all),
@@ -276,6 +289,7 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
             // Apply the new settings
             mApplyButton.setOnClickListener(v -> {
                 mSearchFilters.mcVersion = mSelectedVersion.getText().toString();
+                mSearchFilters.isModpack = mContentTypeSpinner.getSelectedItemPosition() == 1;
                 switch (mSourceSpinner.getSelectedItemPosition()) {
                     case 1:
                         mSearchFilters.source = Constants.SOURCE_MODRINTH;
