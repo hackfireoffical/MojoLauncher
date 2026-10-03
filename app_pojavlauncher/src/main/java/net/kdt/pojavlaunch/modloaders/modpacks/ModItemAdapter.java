@@ -429,8 +429,13 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     .setTitle("Required dependencies")
                     .setMessage(message.toString())
                     .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Download anyway", (dialog, which) ->
+                    .setNeutralButton("Download mod only", (dialog, which) ->
                             mModpackApi.handleModInstallation(
+                                    mExtendedButton.getContext().getApplicationContext(),
+                                    mModDetail,
+                                    mSelectedVersion))
+                    .setPositiveButton("Download + required", (dialog, which) ->
+                            mModpackApi.handleModInstallationWithDependencies(
                                     mExtendedButton.getContext().getApplicationContext(),
                                     mModDetail,
                                     mSelectedVersion))
