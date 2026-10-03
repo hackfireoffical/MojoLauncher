@@ -125,6 +125,13 @@ public class CommonApi implements ModpackApi {
     }
 
     @Override
+    public void installMod(ModDetail modDetail, int selectedVersion, File instanceDirectory) throws IOException {
+        ModpackApi api = getModpackApi(modDetail.apiSource);
+        if (api == null) throw new IOException("Mod source is unavailable");
+        api.installMod(modDetail, selectedVersion, instanceDirectory);
+    }
+
+    @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException {
         return getModpackApi(modDetail.apiSource).installModpack(modDetail, selectedVersion);
     }
