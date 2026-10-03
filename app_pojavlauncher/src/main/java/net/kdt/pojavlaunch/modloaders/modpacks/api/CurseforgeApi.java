@@ -137,17 +137,18 @@ public class CurseforgeApi implements ModpackApi{
             versionUrls[i] = downloadUrl.getAsString();
 
             JsonArray gameVersions = modDetail.getAsJsonArray("gameVersions");
+            StringBuilder mcVersionBuilder = new StringBuilder();
             for(JsonElement jsonElement : gameVersions) {
                 String gameVersion = jsonElement.getAsString();
-                if(!sMcVersionPattern.matcher(gameVersion).matches()) {
-                    continue;
-                }
-                mcVersionNames[i] = gameVersion;
-                break;
+                if(!sMcVersionPattern.matcher(gameVersion).matches()) continue;
+                if(mcVersionBuilder.length() > 0) mcVersionBuilder.append(", ");
+                mcVersionBuilder.append(gameVersion);
             }
+            mcVersionNames[i] = mcVersionBuilder.toString();
 
             hashes[i] = getSha1FromModData(modDetail);
             loaders[i] = getCurseforgeLoaderName(modDetail);
+            if ("Unknown".equals(loaders[i]) && (Constants.CONTENT_SHADER.equals(item.contentType) || Constants.CONTENT_RESOURCEPACK.equals(item.contentType))) loaders[i] = "Minecraft";
             JsonElement fileLength = modDetail.get("fileLength");
             sizes[i] = fileLength != null && !fileLength.isJsonNull() ? fileLength.getAsLong() : -1;
         }
