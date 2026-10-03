@@ -54,6 +54,7 @@ import java.io.OutputStream;
 public class SearchModFragment extends Fragment implements ModItemAdapter.SearchResultCallback {
 
     public static final String TAG = "SearchModFragment";
+    public static final String ARG_CONTENT_TYPE = "content_type";
     private View mOverlay;
     private float mOverlayTopCache; // Padding cache reduce resource lookup
 
@@ -118,6 +119,18 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
         super(R.layout.fragment_mod_search);
         mSearchFilters = new SearchFilters();
         mSearchFilters.isModpack = false;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            String contentType = getArguments().getString(ARG_CONTENT_TYPE);
+            if (contentType != null) {
+                mSearchFilters.contentType = contentType;
+                mSearchFilters.isModpack = Constants.CONTENT_MODPACK.equals(contentType);
+            }
+        }
     }
 
     @Override
@@ -233,13 +246,19 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
 
             String[] contentTypeLabels = {
                     getString(R.string.search_mod_content_mods),
-                    getString(R.string.search_mod_content_modpacks)
+                    getString(R.string.search_mod_content_modpacks),
+                    getString(R.string.search_mod_content_shaders),
+                    getString(R.string.search_mod_content_resourcepacks)
             };
             ArrayAdapter<String> contentTypeAdapter = new ArrayAdapter<>(
                     requireContext(), android.R.layout.simple_spinner_item, contentTypeLabels);
             contentTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             mContentTypeSpinner.setAdapter(contentTypeAdapter);
-            mContentTypeSpinner.setSelection(mSearchFilters.isModpack ? 1 : 0);
+            int contentSelection = 0;
+            if (Constants.CONTENT_MODPACK.equals(mSearchFilters.contentType)) contentSelection = 1;
+            else if (Constants.CONTENT_SHADER.equals(mSearchFilters.contentType)) contentSelection = 2;
+            else if (Constants.CONTENT_RESOURCEPACK.equals(mSearchFilters.contentType)) contentSelection = 3;
+            mContentTypeSpinner.setSelection(contentSelection);
 
             String[] sourceLabels = {
                     getString(R.string.search_mod_source_all),
@@ -289,7 +308,14 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
             // Apply the new settings
             mApplyButton.setOnClickListener(v -> {
                 mSearchFilters.mcVersion = mSelectedVersion.getText().toString();
-                mSearchFilters.isModpack = mContentTypeSpinner.getSelectedItemPosition() == 1;
+                int contentSelection = mContentTypeSpinner.getSelectedItemPosition();
+                mSearchFilters.isModpack = contentSelection == 1;
+                switch (contentSelection) {
+                    case 1: mSearchFilters.contentType = Constants.CONTENT_MODPACK; break;
+                    case 2: mSearchFilters.contentType = Constants.CONTENT_SHADER; break;
+                    case 3: mSearchFilters.contentType = Constants.CONTENT_RESOURCEPACK; break;
+                    default: mSearchFilters.contentType = Constants.CONTENT_MOD; break;
+                }
                 switch (mSourceSpinner.getSelectedItemPosition()) {
                     case 1:
                         mSearchFilters.source = Constants.SOURCE_MODRINTH;
