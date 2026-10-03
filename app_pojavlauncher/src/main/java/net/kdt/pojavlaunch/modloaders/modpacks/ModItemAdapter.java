@@ -353,6 +353,7 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private void populateModVersions(ModDetail detailedItem, String minecraftVersion, String preferredLoader) {
             mVersionList.removeAllViews();
             mSelectedVersion = -1;
+            boolean preferredLoaderFound = false;
 
             for (int i = 0; i < detailedItem.versionNames.length; i++) {
                 if (!minecraftVersion.equals(detailedItem.mcVersionNames[i])) continue;
@@ -394,8 +395,10 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                 // APIs normally return newest versions first, so the first compatible
                 // version becomes the automatic selection.
-                if (mSelectedVersion == -1
-                        || (preferredLoader != null && preferredLoader.equalsIgnoreCase(loader))) {
+                if (preferredLoader != null && preferredLoader.equalsIgnoreCase(loader) && !preferredLoaderFound) {
+                    mSelectedVersion = versionIndex;
+                    preferredLoaderFound = true;
+                } else if (mSelectedVersion == -1) {
                     mSelectedVersion = versionIndex;
                 }
             }
