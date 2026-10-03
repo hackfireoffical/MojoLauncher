@@ -133,8 +133,8 @@ public class CurseforgeApi implements ModpackApi{
             JsonObject modDetail = allModDetails.get(i);
             versionNames[i] = modDetail.get("displayName").getAsString();
 
-            JsonElement downloadUrl = modDetail.get("downloadUrl");
-            versionUrls[i] = downloadUrl.getAsString();
+            // downloadUrl is frequently null on CurseForge; resolveFileUrl() falls back to the edge CDN
+            versionUrls[i] = resolveFileUrl(modDetail);
 
             JsonArray gameVersions = modDetail.getAsJsonArray("gameVersions");
             StringBuilder mcVersionBuilder = new StringBuilder();
@@ -153,6 +153,26 @@ public class CurseforgeApi implements ModpackApi{
             sizes[i] = fileLength != null && !fileLength.isJsonNull() ? fileLength.getAsLong() : -1;
         }
         return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders, sizes);
+    }
+
+    /**
+     * Resolve a download URL for a CurseForge file. The API returns downloadUrl = null for many
+     * files; calling getAsString() on that used to throw and silently kill the whole version list.
+     */
+    @Nullable
+    private String resolveFileUrl(JsonObject file) {
+        JsonElement downloadUrl = file.get("downloadUrl");
+        if (downloadUrl != null && !downloadUrl.isJsonNull()) {
+            String url = downloadUrl.getAsString();
+            if (!url.isEmpty()) return url;
+        }
+        JsonElement id = file.get("id");
+        JsonElement fileName = file.get("fileName");
+        if (id == null || id.isJsonNull() || fileName == null || fileName.isJsonNull()) return null;
+        long fileId = id.getAsLong();
+        // String concatenation (not String.format) so non-Latin default locales can't change the digits
+        return "https://edge.forgecdn.net/files/" + (fileId / 1000) + "/" + (fileId % 1000) + "/"
+                + fileName.getAsString().replace(" ", "%20");
     }
 
     @Override
@@ -247,7 +267,8 @@ public class CurseforgeApi implements ModpackApi{
         Log.i("CurseforgeApi", "filtering...");
         for(int i = 0; i < data.size(); i++) {
             JsonObject fileInfo = data.get(i).getAsJsonObject();
-            if(fileInfo.get("isServerPack").getAsBoolean()) continue;
+            JsonElement isServerPack = fileInfo.get("isServerPack");
+            if(isServerPack != null && !isServerPack.isJsonNull() && isServerPack.getAsBoolean()) continue;
             objectList.add(fileInfo);
         }
         Log.i("CurseforgeApi", "pag_end");

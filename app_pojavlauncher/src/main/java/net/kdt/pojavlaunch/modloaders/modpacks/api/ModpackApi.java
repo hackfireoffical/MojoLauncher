@@ -77,9 +77,14 @@ public interface ModpackApi {
                 Instance instance = Instances.loadSelectedInstance();
                 if (instance == null) throw new IOException("No instance selected");
                 installMod(modDetail, selectedVersion, instance.getGameDirectory());
-            } catch (IOException e) {
-                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
+            } catch (Exception e) {
+                // Catch everything, not just IOException: an unchecked exception here used to
+                // leave the progress bar frozen and the Download button disabled forever.
                 Tools.showErrorRemote(context, R.string.modpack_install_download_failed, e);
+            } finally {
+                // Single-content installs never cleared their progress on success, which left
+                // the bar stuck just below 100% and blocked every further download.
+                ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);
             }
         });
     }
