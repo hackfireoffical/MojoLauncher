@@ -136,7 +136,7 @@ public class ModrinthApi implements ModpackApi{
                     if (projectId == null || projectId.isEmpty()) continue;
                     String dependencyName = projectId;
                     try {
-                        JsonObject project = mApiHandler.get("project/" + projectId, null, JsonObject.class);
+                        JsonObject project = mApiHandler.get("project/" + projectId, JsonObject.class);
                         if (project != null && project.has("title")) dependencyName = project.get("title").getAsString();
                     } catch (Exception ignored) {}
                     requiredDependencies.add(dependencyName);
