@@ -127,6 +127,7 @@ public class CurseforgeApi implements ModpackApi{
         String[] mcVersionNames = new String[length];
         String[] versionUrls = new String[length];
         String[] hashes = new String[length];
+        String[] loaders = new String[length];
         for(int i = 0; i < allModDetails.size(); i++) {
             JsonObject modDetail = allModDetails.get(i);
             versionNames[i] = modDetail.get("displayName").getAsString();
@@ -145,8 +146,9 @@ public class CurseforgeApi implements ModpackApi{
             }
 
             hashes[i] = getSha1FromModData(modDetail);
+            loaders[i] = getCurseforgeLoaderName(modDetail);
         }
-        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes);
+        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes, loaders);
     }
 
     @Override
@@ -168,7 +170,7 @@ public class CurseforgeApi implements ModpackApi{
         new SingleModDownloader().start(downloads);
     }
 
-    private String getContentFileName(String urlString, String title, String contentType) {
+    private String getCurseforgeLoaderName(JsonObject file) {\n        JsonElement loader = file.get("modLoaderType");\n        if (loader != null && !loader.isJsonNull()) {\n            switch (loader.getAsInt()) {\n                case 1: return "Forge";\n                case 4: return "Fabric";\n                case 5: return "Quilt";\n                case 6: return "NeoForge";\n                default: break;\n            }\n        }\n        return "Unknown";\n    }\n\n    private String getContentFileName(String urlString, String title, String contentType) {
         try {
             String path = new URL(urlString).getPath();
             String name = new File(URLDecoder.decode(path, "UTF-8")).getName();
