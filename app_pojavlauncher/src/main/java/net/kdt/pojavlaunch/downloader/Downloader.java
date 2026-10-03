@@ -34,6 +34,8 @@ public class Downloader {
     private final AtomicInteger mDownloadedFileCounter = new AtomicInteger();
     private final AtomicLong mDownloadedSizeCounter = new AtomicLong();
     private final AtomicLong mInternetUsageCounter = new AtomicLong();
+    private final AtomicLong mLastProgressTimestamp = new AtomicLong();
+    private static final long DOWNLOAD_STALL_TIMEOUT_MS = 30000L;
     private final AtomicBoolean mUseSizeProgress = new AtomicBoolean(true);
     private final SpeedCalculator mSpeedCalculator = new SpeedCalculator();
     private ExecutorService mDownloadService;
@@ -70,7 +72,18 @@ public class Downloader {
         double totalMegabytes = totalSize / ONE_MEGABYTE;
         while(mDownloadedFileCounter.get() < totalCount) {
             IOException exception = mThreadException.get();
-            if(exception != null) throw exception;
+            if(exception != null) {
+                mDownloadService.shutdownNow();
+                mVerifyService.shutdownNow();
+                throw exception;
+            }
+            if(mDownloadedFileCounter.get() < totalCount &&
+                    System.currentTimeMillis() - mLastProgressTimestamp.get() > DOWNLOAD_STALL_TIMEOUT_MS) {
+                mDownloadService.shutdownNow();
+                mVerifyService.shutdownNow();
+                throw new IOException("Download stalled for more than " +
+                        (DOWNLOAD_STALL_TIMEOUT_MS / 1000) + " seconds");
+            }
             if(sizeCounter) reportSizeProgress(totalMegabytes);
             else reportCountProgress(R.string.newerdl_downloading_files_count, totalCount);
             Thread.sleep(33);
@@ -144,6 +157,7 @@ public class Downloader {
     }
 
     protected void addSize(long bytes) {
+        if(bytes != 0) mLastProgressTimestamp.set(System.currentTimeMillis());
         mDownloadedSizeCounter.getAndAdd(bytes);
     }
 
