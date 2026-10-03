@@ -143,7 +143,12 @@ public class ModrinthApi implements ModpackApi{
                 0,
                 modDetail.versionHashes[selectedVersion],
                 DownloadMirror.DOWNLOAD_CLASS_NONE));
-        new SingleModDownloader().start(downloads);
+        try {
+            new SingleModDownloader().start(downloads);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Download interrupted", e);
+        }
     }
 
     private String getContentFileName(String urlString, String title, String contentType) {
